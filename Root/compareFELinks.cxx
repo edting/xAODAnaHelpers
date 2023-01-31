@@ -1,15 +1,27 @@
-/******************************************
+/*******************************************************************************
  *
- * compareFELinks:
+ * This algorithm produces ntuples for the purpose of overlap removal studies.
+ * Depending on the object containers that are specified in the configuration,
+ * the event topology is assumed, as follows:
+ *   - only electrons .............. Z->ee
+ *   - only muons .................. Z->mm
+ *   - only photons ................ single photon
+ *   - electrons and muons ......... ttbar
+ *   - electrons, muons, photons ... dijet
  *
- * produces ntuples containing electron, muon, photon and jet kinematic variables (pT, eta, etc.)
- * as well as a vector of values corresponding to the index of the Flow Elements they each link to
- * n.b. for jets, these values are extracted from constituents
+ * In all cases, a jet container is expected to be specified.
  *
- * Edmund Ting
- * Sep 2021
+ * Kinematic and other variables of the jets and objects are written to an
+ * output ROOT ntuple, with the following structure:
+ *   - ROOT file
+ *    |- TFile object
+ *      |- TTrees for jets, objects, etc.
+ *        |- leaves containing the variables that are saved
  *
- ******************************************/
+ * yes it's weird that the top level directory in the file is a TFile object
+ * but hey it works so whatever
+ *
+ *******************************************************************************/
 
 // c++ include(s):
 #include <iostream>
@@ -87,12 +99,12 @@ EL::StatusCode compareFELinks :: histInitialize ()
   ANA_CHECK( xAH::Algorithm::algInitialize() );
 
   // create output file
-  //  m_file = new TFile(m_outFileName.c_str(), "RECREATE"); //this method will not work on the grid; use the three lines below instead
   TFile *m_file = wk()->getOutputFile( "ntuples" );
   m_file->mkdir( m_outFileName.c_str() );
   m_file->cd( m_outFileName.c_str() );
 
-  // store run and event number
+  // Here we specify all the trees that will be saved to the output file:
+  // event info
   m_infoTree = new TTree(m_infoTreeName.c_str(),"infoTree");
   m_infoTree->Branch("runNumber", &m_runNumber, "runNumber/I");
   m_infoTree->Branch("eventNumber", &m_evtNumber, "eventNumber/I");
@@ -104,7 +116,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
   m_infoTree->Branch("mcEventWeights", &m_mcEventWeights, "mcEventWeights/D");
   m_infoTree->Branch("initialSumW", &m_MD_initialSumW, "initialSumW/D"); //weighted number of events
 
-  // create tree(s) and branches, for containers whose strings aren't empty
+  // PFlow jets
   if( !m_pflowJetContainerName.empty() ) {
     m_pflowJetTree = new TTree(m_pflowJetTreeName.c_str(),"pflowJetTree");
     m_pflowJetTree->Branch("pt", &m_pt);
@@ -130,6 +142,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_pflowJetTree->Branch("calpfo_NLeadingTruthParticleEnergy", &m_calpfo_NLeadingTruthParticleEnergy);
   }
 
+  // EMTopo jets
   if( !m_topoJetContainerName.empty() ) {
     m_topoJetTree = new TTree(m_topoJetTreeName.c_str(),"topoJetTree");
     m_topoJetTree->Branch("pt", &m_pt);
@@ -143,6 +156,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_topoJetTree->Branch("detEta", &m_detEta);
   }
 
+  // electrons
   if( !m_electronContainerName.empty() ) {
     m_electronTree = new TTree(m_electronTreeName.c_str(),"electronTree");
     m_electronTree->Branch("pt", &m_pt);
@@ -159,6 +173,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_electronTree->Branch("calpfo_NLeadingTruthParticleEnergy", &m_calpfo_NLeadingTruthParticleEnergy);
   }
 
+  // photons
   if( !m_photonContainerName.empty() ) {
     m_photonTree = new TTree(m_photonTreeName.c_str(),"photonTree");
     m_photonTree->Branch("pt", &m_pt);
@@ -172,6 +187,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_photonTree->Branch("chargedPFOenergy", &m_chargedPFOenergy);
   }
 
+  // muons
   if( !m_muonContainerName.empty() ) {
     m_muonTree = new TTree(m_muonTreeName.c_str(),"muonTree");
     m_muonTree->Branch("pt", &m_pt);
@@ -185,6 +201,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_muonTree->Branch("chargedPFOenergy", &m_chargedPFOenergy);
   }
 
+  // truth objects (electrons/muons/etc. depending on topology)
   if( !m_truthContainerName.empty() ) {
     m_truthTree = new TTree(m_truthTreeName.c_str(),"truthTree");
     m_truthTree->Branch("barcode", &m_truthBarcode);
@@ -195,6 +212,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_truthTree->Branch("e", &m_e);
   }
 
+  // truth jets (intended to be AntiKt4TruthJets)
   if( !m_truthJetContainerName.empty() ) {
     m_truthJetTree = new TTree(m_truthJetTreeName.c_str(),"truthJetTree");
     m_truthJetTree->Branch("pt", &m_pt);
@@ -204,6 +222,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_truthJetTree->Branch("isIsoJetDR1p0", &m_isIsoJetDR1p0);
   }
 
+  // truth WZ jets (AntiKt4Truth(Dressed)WZJets)
   if( !m_truthWZJetContainerName.empty() ) {
     m_truthWZJetTree = new TTree(m_truthWZJetTreeName.c_str(),"truthWZJetTree");
     m_truthWZJetTree->Branch("pt", &m_pt);
@@ -402,12 +421,7 @@ EL::StatusCode compareFELinks :: initialize ()
   if( m_convertMeVToGeV ) m_conversionFactor = 0.001;
   else m_conversionFactor = 1;
 
-  // can't use declareProperty in xAH so just comment these lines out
-  // declareProperty("ElectronNeutralFEDecorKey", m_electronNeutralFEReadDecorKey = "Electrons.neutralFELinks");
-  // declareProperty("ElectronChargedFEDecorKey", m_electronChargedFEReadDecorKey = "Electrons.chargedFELinks");
-  // declareProperty("PhotonNeutralFEDecorKey", m_photonNeutralFEReadDecorKey = "Photons.neutralFELinks");
-  // declareProperty("MuonNeutralFEDecorKey", m_muonNeutralFEReadDecorKey = "Muons.neutralFELinks");
-  // declareProperty("MuonChargedFEDecorKey", m_muonChargedFEReadDecorKey = "Muons.chargedFELinks");
+  // initialise decoration keys for FE links
   ANA_CHECK(m_electronNeutralFEReadDecorKey.assign("Electrons.neutralGlobalFELinks"));
   ANA_CHECK(m_electronChargedFEReadDecorKey.assign("Electrons.chargedGlobalFELinks"));
   ANA_CHECK(m_photonNeutralFEReadDecorKey.assign("Photons.neutralGlobalFELinks"));
