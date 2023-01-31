@@ -433,33 +433,20 @@ EL::StatusCode compareFELinks :: initialize ()
   ANA_CHECK(m_muonNeutralFEReadDecorKey.initialize());
   ANA_CHECK(m_muonChargedFEReadDecorKey.initialize());
 
-  // // decor keys for original <-> global FE links
-  // ANA_CHECK(m_neutralOriginalToGlobalFEReadDecorKey.assign("JetETMissNeutralParticleFlowObjects.LinkToNeutralGlobalFlowElement"));
-  // ANA_CHECK(m_chargedOriginalToGlobalFEReadDecorKey.assign("JetETMissChargedParticleFlowObjects.LinkToChargedGlobalFlowElement"));
-  // ANA_CHECK(m_chargedOriginalToNeutralGlobalFEReadDecorKey.assign("JetETMissChargedParticleFlowObjects.LinksToNeutralGlobalFlowElements"));
-  // ANA_CHECK(m_neutralOriginalToGlobalFEReadDecorKey.initialize());
-  // ANA_CHECK(m_chargedOriginalToGlobalFEReadDecorKey.initialize());
-  // ANA_CHECK(m_chargedOriginalToNeutralGlobalFEReadDecorKey.initialize());
+  // decor keys for original (JetETMiss) to global FE links
+  ANA_CHECK(m_neutralOriginalToGlobalFEReadDecorKey.assign("JetETMissNeutralParticleFlowObjects.LinkToNeutralGlobalFlowElement"));
+  ANA_CHECK(m_chargedOriginalToGlobalFEReadDecorKey.assign("JetETMissChargedParticleFlowObjects.LinkToChargedGlobalFlowElement"));
+  ANA_CHECK(m_chargedOriginalToNeutralGlobalFEReadDecorKey.assign("JetETMissChargedParticleFlowObjects.LinksToNeutralGlobalFlowElements"));
+  ANA_CHECK(m_neutralOriginalToGlobalFEReadDecorKey.initialize());
+  ANA_CHECK(m_chargedOriginalToGlobalFEReadDecorKey.initialize());
+  ANA_CHECK(m_chargedOriginalToNeutralGlobalFEReadDecorKey.initialize());
 
   // declare jet container jey and initialize ... using METJetAssocTool as example
-  //declareProperty( "JetContKey", m_jetContKey );
   if( !m_pflowJetContainerName.empty() ) {
     ANA_CHECK( m_jetContKey.assign(m_pflowJetContainerName));
     ANA_CHECK( m_jetContKey.initialize());
   }
 
-  // std::string outputContainerBase = "CHSParticleFlowObjects";
-  // m_outAllFEKey = outputContainerBase;
-  // ANA_CHECK(m_outAllFEKey.initialize());
-  
-  // std::string inputContainerBase = "CHS";
-  // m_inChargedFEKey = inputContainerBase + "ChargedParticleFlowObjects";
-  // m_inNeutralFEKey = inputContainerBase + "NeutralParticleFlowObjects";
-
-  // ANA_CHECK(m_inChargedFEKey.initialize());
-  // ANA_CHECK(m_inNeutralFEKey.initialize());
-
-  //std::string inputContainerBaseJet = "JetETMiss";
   std::string inputContainerBaseJet = "Global";
   m_inGlobalChargedFEKey = inputContainerBaseJet + "ChargedParticleFlowObjects";
   m_inGlobalNeutralFEKey = inputContainerBaseJet + "NeutralParticleFlowObjects";
