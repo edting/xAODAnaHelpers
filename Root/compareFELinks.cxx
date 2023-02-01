@@ -764,8 +764,7 @@ EL::StatusCode compareFELinks :: execute ()
   }
 
   // ttbar
-  //if( m_isttbar ) {
-  if( false ) { //temp: dunno how to save TruthBosonsWithDecayParticles using CA method so just turn off this for now...
+  if( m_isttbar ) {
     const xAOD::TruthParticleContainer *truthContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
 
