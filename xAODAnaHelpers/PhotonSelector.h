@@ -57,7 +57,7 @@ public:
   /** reject objects which do not pass this isolation cut - default = "" (no cut) */
   std::string    m_MinIsoWPCut = "";
   /** decorate objects with 'isIsolated_*' flag for each WP in this input list - default = all current ASG WPs */
-  std::string    m_IsoWPList = "FixedCutTightCaloOnly,FixedCutTight,FixedCutLoose";
+  std::string    m_IsoWPList = "TightCaloOnly,FixedCutTight,FixedCutLoose";
 
 private:
   std::string    m_outAuxContainerName; //!
