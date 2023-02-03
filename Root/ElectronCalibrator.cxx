@@ -140,6 +140,7 @@ EL::StatusCode ElectronCalibrator :: initialize ()
   m_EgammaCalibrationAndSmearingTool->msg().setLevel( MSG::ERROR ); // DEBUG, VERBOSE, INFO
   ANA_CHECK( m_EgammaCalibrationAndSmearingTool->setProperty("ESModel", m_esModel));
   ANA_CHECK( m_EgammaCalibrationAndSmearingTool->setProperty("decorrelationModel", m_decorrelationModel));
+  if(m_randomRunNumber>0) ANA_CHECK( m_EgammaCalibrationAndSmearingTool->setProperty("randomRunNumber", m_randomRunNumber));
 
   //
   // For AFII samples

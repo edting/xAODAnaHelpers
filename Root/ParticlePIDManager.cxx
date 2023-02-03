@@ -3,7 +3,6 @@
 ANA_MSG_SOURCE(msgPIDManager, "PIDManager")
 
 ElectronLHPIDManager :: ElectronLHPIDManager ( std::string WP, bool debug ) :
-  m_asgElectronLikelihoodTool_VeryLooseNP(nullptr),
   m_asgElectronLikelihoodTool_VeryLoose(nullptr),
   m_asgElectronLikelihoodTool_Loose(nullptr),
   m_asgElectronLikelihoodTool_LooseBL(nullptr),
@@ -14,13 +13,11 @@ ElectronLHPIDManager :: ElectronLHPIDManager ( std::string WP, bool debug ) :
       m_debug      = debug;
 
       /*  fill the multimap with WPs and corresponding tools */
-      std::pair < std::string, AsgElectronLikelihoodTool* > veryloosenp = std::make_pair( std::string("VeryLooseNoPix"), m_asgElectronLikelihoodTool_VeryLooseNP );
       std::pair < std::string, AsgElectronLikelihoodTool* > veryloose   = std::make_pair( std::string("VeryLoose"), m_asgElectronLikelihoodTool_VeryLoose );
       std::pair < std::string, AsgElectronLikelihoodTool* > loose       = std::make_pair( std::string("Loose"),     m_asgElectronLikelihoodTool_Loose     );
       std::pair < std::string, AsgElectronLikelihoodTool* > loosebl     = std::make_pair( std::string("LooseBL"),     m_asgElectronLikelihoodTool_LooseBL     );
       std::pair < std::string, AsgElectronLikelihoodTool* > medium      = std::make_pair( std::string("Medium"),    m_asgElectronLikelihoodTool_Medium    );
       std::pair < std::string, AsgElectronLikelihoodTool* > tight       = std::make_pair( std::string("Tight"),     m_asgElectronLikelihoodTool_Tight     );
-      m_allWPTools.insert(veryloosenp); m_allWPAuxDecors.insert("VeryLooseNoPix");
       m_allWPTools.insert(veryloose);   m_allWPAuxDecors.insert("VeryLoose");
       m_allWPTools.insert(loose);       m_allWPAuxDecors.insert("Loose");
       m_allWPTools.insert(loosebl);     m_allWPAuxDecors.insert("Loose"); //Not saved in DAODs, so use Loose decision
@@ -30,7 +27,6 @@ ElectronLHPIDManager :: ElectronLHPIDManager ( std::string WP, bool debug ) :
 
 ElectronLHPIDManager ::  ~ElectronLHPIDManager()
 {
-  if ( m_asgElectronLikelihoodTool_VeryLooseNP ) { delete m_asgElectronLikelihoodTool_VeryLooseNP; m_asgElectronLikelihoodTool_VeryLooseNP = nullptr; }
   if ( m_asgElectronLikelihoodTool_VeryLoose )   { delete m_asgElectronLikelihoodTool_VeryLoose; m_asgElectronLikelihoodTool_VeryLoose = nullptr; }
   if ( m_asgElectronLikelihoodTool_Loose )       { delete m_asgElectronLikelihoodTool_Loose;     m_asgElectronLikelihoodTool_Loose     = nullptr; }
   if ( m_asgElectronLikelihoodTool_LooseBL )     { delete m_asgElectronLikelihoodTool_LooseBL;   m_asgElectronLikelihoodTool_LooseBL   = nullptr; }

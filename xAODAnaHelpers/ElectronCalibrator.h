@@ -68,6 +68,7 @@ public:
 
   std::string m_esModel = "";
   std::string m_decorrelationModel = "";
+  int m_randomRunNumber = -1;
 
   /** @brief Apply isolation correction, not needed by default */
   bool m_applyIsolationCorrection = false;
