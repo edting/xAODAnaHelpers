@@ -438,11 +438,18 @@ EL::StatusCode compareFELinks :: initialize ()
   }
 
   // initialise jet constituent container(s)
-  std::string inputContainerBaseJet = "Global";
-  m_inGlobalChargedFEKey = inputContainerBaseJet + "ChargedParticleFlowObjects";
-  m_inGlobalNeutralFEKey = inputContainerBaseJet + "NeutralParticleFlowObjects";
+  std::string inputContainerBaseGlobal = "Global";
+  std::string inputContainerBaseCHSG = "CHSG";
+  std::string chargedContainerName = "ChargedParticleFlowObjects";
+  std::string neutralContainerName = "NeutralParticleFlowObjects";
+  m_inGlobalChargedFEKey = inputContainerBaseGlobal + chargedContainerName;
+  m_inGlobalNeutralFEKey = inputContainerBaseGlobal + neutralContainerName;
+  m_inCHSGChargedFEKey = inputContainerBaseCHSG + chargedContainerName;
+  m_inCHSGNeutralFEKey = inputContainerBaseCHSG + neutralContainerName;
   ANA_CHECK(m_inGlobalChargedFEKey.initialize());
   ANA_CHECK(m_inGlobalNeutralFEKey.initialize());
+  ANA_CHECK(m_inCHSGChargedFEKey.initialize());
+  ANA_CHECK(m_inCHSGNeutralFEKey.initialize());
 
   return EL::StatusCode::SUCCESS;
 }
@@ -908,6 +915,8 @@ EL::StatusCode compareFELinks :: execute ()
 
     SG::ReadHandle<xAOD::FlowElementContainer> inGlobalNeutralFEHandle = makeHandle(m_inGlobalNeutralFEKey);
     SG::ReadHandle<xAOD::FlowElementContainer> inGlobalChargedFEHandle = makeHandle(m_inGlobalChargedFEKey);
+    SG::ReadHandle<xAOD::FlowElementContainer> inCHSGNeutralFEHandle = makeHandle(m_inCHSGNeutralFEKey);
+    SG::ReadHandle<xAOD::FlowElementContainer> inCHSGChargedFEHandle = makeHandle(m_inCHSGChargedFEKey);
     SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetContKey);
     SG::ReadHandle<xAOD::TruthParticleContainer> truthParticles("TruthParticles");
 
@@ -920,7 +929,7 @@ EL::StatusCode compareFELinks :: execute ()
 
     // loop over jets
     for( const xAOD::Jet *jet : *inContainer ) {
-      // vectors to store index amd energy of constituents
+      // vectors to store index and energy of constituents
       std::vector<int> chargedPFOindex;
       std::vector<int> neutralPFOindex;
       std::vector<double> chargedPFOenergy;
@@ -934,25 +943,30 @@ EL::StatusCode compareFELinks :: execute ()
       // loop over jet constituents
       ANA_MSG_VERBOSE( "Number of jet constituents: " << jet->numConstituents() );
       for( size_t consti = 0; consti < jet->numConstituents(); consti++) {
-	// constituents point to the Global PFlow containers
+	// constituents point to the CHSG PFlow containers!!! Note that only the Global containers has calpfo decoration
       	const xAOD::FlowElement *fe = static_cast<const xAOD::FlowElement*>(jet->rawConstituent(consti));
 
+	if( inGlobalChargedFEHandle->size() != inCHSGChargedFEHandle->size() || inGlobalNeutralFEHandle->size() != inCHSGNeutralFEHandle->size() )
+	  ANA_MSG_INFO( "Ruh roh... Global and CHSG containers have different sizes..." );
+
 	//if( fe->isCharged() ) {
-	if( inGlobalChargedFEHandle->size() > fe->index() && inGlobalChargedFEHandle->at(fe->index()) == fe ) { //use this line if isCharged() doesn't work...
-	  chargedPFOindex.push_back(fe->index());
-	  chargedPFOenergy.push_back(fe->e()*m_conversionFactor);
-      	  ANA_MSG_VERBOSE( "Charged Flow Element index: " << fe->index() );
+	if( inCHSGChargedFEHandle->size() > fe->index() && inCHSGChargedFEHandle->at(fe->index()) == fe ) { //use this line if isCharged() doesn't work...
+	  const xAOD::FlowElement *fe_global = inGlobalChargedFEHandle->at(fe->index());
+	  chargedPFOindex.push_back(fe_global->index());
+	  chargedPFOenergy.push_back(fe_global->e()*m_conversionFactor);
+      	  ANA_MSG_VERBOSE( "Charged Flow Element index: " << fe_global->index() );
       	}
 	//else if( !fe->isCharged() ) {
-      	else if( inGlobalNeutralFEHandle->size() > fe->index() && inGlobalNeutralFEHandle->at(fe->index()) == fe ){ //use this line if isCharged() doesn't work...
-	  neutralPFOindex.push_back(fe->index());
-	  neutralPFOenergy.push_back(fe->e()*m_conversionFactor);
-      	  ANA_MSG_VERBOSE( "Neutral Flow Element index: " << fe->index() );
+      	else if( inCHSGNeutralFEHandle->size() > fe->index() && inCHSGNeutralFEHandle->at(fe->index()) == fe ){ //use this line if isCharged() doesn't work...
+	  const xAOD::FlowElement *fe_global = inGlobalNeutralFEHandle->at(fe->index());
+	  neutralPFOindex.push_back(fe_global->index());
+	  neutralPFOenergy.push_back(fe_global->e()*m_conversionFactor);
+      	  ANA_MSG_VERBOSE( "Neutral Flow Element index: " << fe_global->index() );
 
 	  // for neutral PFOs, also save calibration hit information
 	  // by default, (up to) the three largest contributions to each neutral FE is saved to the calpfo vector
 	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
-	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe);
+	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe_global);
 	  std::vector<Int_t> truthIDs;
 	  std::vector<Int_t> truthBarcodes;
 	  std::vector<Double_t> truthEnergies; //note: this is the amount of energy deposited in the nPFO by the truth particle
@@ -1123,9 +1137,6 @@ EL::StatusCode compareFELinks :: execute ()
 
   /// ELECTRONS
   if( !m_electronContainerName.empty() ) {
-    // SG::ReadHandle<xAOD::FlowElementContainer> inGlobalNeutralFEHandle = makeHandle(m_inGlobalNeutralFEKey);
-    // SG::ReadHandle<xAOD::FlowElementContainer> inGlobalChargedFEHandle = makeHandle(m_inGlobalChargedFEKey);
-
     const xAOD::TruthParticleContainer *truthParticles = nullptr;
     const xAOD::ElectronContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
@@ -1167,8 +1178,6 @@ EL::StatusCode compareFELinks :: execute ()
 	  // save calibration hit information
 	  ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
 	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
-	  // const xAOD::FlowElement *electronNPFO = inGlobalNeutralFEHandle->at(electronNeutralGlobalFlowElement->index()); //BLAH not sure if needed...
-	  // std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNPFO);
 	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNeutralGlobalFlowElement);
 	  ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
 

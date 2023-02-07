@@ -176,6 +176,8 @@ private:
   // Global PFlow container keys
   SG::ReadHandleKey<xAOD::FlowElementContainer> m_inGlobalChargedFEKey;
   SG::ReadHandleKey<xAOD::FlowElementContainer> m_inGlobalNeutralFEKey;
+  SG::ReadHandleKey<xAOD::FlowElementContainer> m_inCHSGChargedFEKey;
+  SG::ReadHandleKey<xAOD::FlowElementContainer> m_inCHSGNeutralFEKey;
 
   // jet container key
   SG::ReadHandleKey<xAOD::JetContainer> m_jetContKey;
