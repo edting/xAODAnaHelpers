@@ -103,7 +103,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
   m_file->mkdir( m_outFileName.c_str() );
   m_file->cd( m_outFileName.c_str() );
 
-  // Here we specify all the trees that will be saved to the output file:
+  // trees that will be saved to the output file:
   // event info
   m_infoTree = new TTree(m_infoTreeName.c_str(),"infoTree");
   m_infoTree->Branch("runNumber", &m_runNumber, "runNumber/I");
@@ -114,7 +114,7 @@ EL::StatusCode compareFELinks :: histInitialize ()
   m_infoTree->Branch("averageInteractionsPerCrossing", &m_mu, "averageInteractionsPerCrossing/I");
   m_infoTree->Branch("mcChannelNumber", &m_mcChannelNumber, "mcChannelNumber/I");
   m_infoTree->Branch("mcEventWeights", &m_mcEventWeights, "mcEventWeights/D");
-  m_infoTree->Branch("initialSumW", &m_MD_initialSumW, "initialSumW/D"); //weighted number of events
+  m_infoTree->Branch("initialSumW", &m_MD_initialSumW, "initialSumW/D");
 
   // PFlow jets
   if( !m_pflowJetContainerName.empty() ) {
@@ -124,7 +124,6 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_pflowJetTree->Branch("phi", &m_phi);
     m_pflowJetTree->Branch("e", &m_e);
     m_pflowJetTree->Branch("isTag", &m_isTag);
-    //    m_pflowJetTree->Branch("sf", &m_sf);
     m_pflowJetTree->Branch("nTrk", &m_nTrk);
     m_pflowJetTree->Branch("passJVT", &m_passJVT);
     m_pflowJetTree->Branch("pt_constit", &m_pt_constit);
@@ -150,7 +149,6 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_topoJetTree->Branch("phi", &m_phi);
     m_topoJetTree->Branch("e", &m_e);
     m_topoJetTree->Branch("isTag", &m_isTag);
-    //    m_topoJetTree->Branch("sf", &m_sf);
     m_topoJetTree->Branch("nTrk", &m_nTrk);
     m_topoJetTree->Branch("passJVT", &m_passJVT);
     m_topoJetTree->Branch("detEta", &m_detEta);
@@ -422,11 +420,11 @@ EL::StatusCode compareFELinks :: initialize ()
   else m_conversionFactor = 1;
 
   // initialise decoration keys for FE links
-  ANA_CHECK(m_electronNeutralFEReadDecorKey.assign("Electrons.neutralGlobalFELinks"));
-  ANA_CHECK(m_electronChargedFEReadDecorKey.assign("Electrons.chargedGlobalFELinks"));
-  ANA_CHECK(m_photonNeutralFEReadDecorKey.assign("Photons.neutralGlobalFELinks"));
-  ANA_CHECK(m_muonNeutralFEReadDecorKey.assign("Muons.neutralGlobalFELinks"));
-  ANA_CHECK(m_muonChargedFEReadDecorKey.assign("Muons.chargedGlobalFELinks"));
+  ANA_CHECK(m_electronNeutralFEReadDecorKey.assign("Electrons.neutralFELinks"));
+  ANA_CHECK(m_electronChargedFEReadDecorKey.assign("Electrons.chargedFELinks"));
+  ANA_CHECK(m_photonNeutralFEReadDecorKey.assign("Photons.neutralFELinks"));
+  ANA_CHECK(m_muonNeutralFEReadDecorKey.assign("Muons.neutralFELinks"));
+  ANA_CHECK(m_muonChargedFEReadDecorKey.assign("Muons.chargedFELinks"));
   ANA_CHECK(m_electronNeutralFEReadDecorKey.initialize());
   ANA_CHECK(m_electronChargedFEReadDecorKey.initialize());
   ANA_CHECK(m_photonNeutralFEReadDecorKey.initialize());
@@ -469,31 +467,34 @@ EL::StatusCode compareFELinks :: execute ()
   // get output file (required for the method for running on grid)
   TFile *m_file = wk()->getOutputFile( "ntuples" );
 
-
   /******************************************************************
-   * Selection: for Zee/Zmumu/SinglePhoton samples:
-   * only save event if:
-   *  - at least 2 reco electrons / 2 muons / 1 photon in event
-   * and, if truth container is also specified:
-   *  - check e/mu/gam can be deltaR and pT matched to truth ones
-   * for ttbar, check for min. 1 truth lepton, then look for matching reco lepton
-   * for dijet events, just save all electrons / muons / photons
+   *
+   *  Selection for Zee/Zmumu/SinglePhoton samples:
+   *  Only save event if:
+   *   - at least 2 reconstructed electrons / 2 muons / 1 photon are present in event
+   *  If a truth object container is also specified:
+   *   - check that reconstructed and truth electrons/muons/photons are deltaR and pT-matched
+   *
+   *  For ttbar events: check for at least 1 truth lepton, then look for matching reco lepton
+   *
+   *  For dijet events: save all electrons / muons / photons
+   *
    ******************************************************************/
 
-  // based on what object containers are specified, figure out the sample we're looking at
+  // based on what object containers are specified, figure out the sample we're looking at, then apply selections accordingly
   if( !m_electronContainerName.empty() && m_muonContainerName.empty() && m_photonContainerName.empty() ) m_isZee = true;
   else if( m_electronContainerName.empty() && !m_muonContainerName.empty() && m_photonContainerName.empty() ) m_isZmumu = true;
   else if( !m_electronContainerName.empty() && !m_muonContainerName.empty() && m_photonContainerName.empty() ) m_isttbar = true;
   else if( m_electronContainerName.empty() && m_muonContainerName.empty() && !m_photonContainerName.empty() ) m_isSinglePhoton = true;
   else if( !m_electronContainerName.empty() && !m_muonContainerName.empty() && !m_photonContainerName.empty() ) m_isDijet = true;
 
-  // Selections if looking at Zee events
+  // PRESELECTION FOR ZEE EVENTS
   if( m_isZee ) {
     const xAOD::ElectronContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_electronContainerName ) );
 
-    // check that event contains at least 2 electrons (otherwise, skip event)
-    // also store pt, eta and phi of first two electrons (will be used for truth matching below, if specified)
+    // check that event contains at least 2 electrons, otherwise skip event
+    // pt, eta and phi of first two electrons will be used for truth matching (if truth container is available)
     int electronCount = 0;
     double leadingElectronPt = 0;
     double leadingElectronEta = 0;
@@ -528,10 +529,8 @@ EL::StatusCode compareFELinks :: execute ()
       } // end if electronCount > 1
     } // end loop over electrons
 
-    // if event contains fewer than two electrons: move onto next event
     if( electronCount < 2 ) return EL::StatusCode::SUCCESS;
 
-    // if we have truth container: check that leading electron pair can be matched (otherwise, also skip event)
     if( !m_truthContainerName.empty() ) {
       const xAOD::TruthParticleContainer *truthContainer = nullptr;
       ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
@@ -545,11 +544,9 @@ EL::StatusCode compareFELinks :: execute ()
       double subleadingTruthEta = 0;
       double subleadingTruthPhi = 0;
       for (const xAOD::TruthParticle* truth : *truthContainer) {
-  	// skip if it's not the particle we're looking for
   	if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
   	truthCount++;
-
   	if( truthCount == 1 ) {
   	  leadingTruthPt = truth->pt() * m_conversionFactor;
   	  leadingTruthEta = truth->eta();
@@ -575,7 +572,7 @@ EL::StatusCode compareFELinks :: execute ()
   	} // end if truthCount > 1
       } // end loop over truth container
 
-      // calculate deltaR and ptDiffRatio for truth vs reco electrons, for both leading and subleading
+      // skip event if either of the reconstructed leading or subleading electrons don't match the truth
       const double leadingTruthRecoEtaDiff = leadingElectronEta - leadingTruthEta;
       const double leadingTruthRecoPhiDiff = leadingElectronPhi - leadingTruthPhi;
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
@@ -586,20 +583,23 @@ EL::StatusCode compareFELinks :: execute ()
       const double subleadingTruthRecoDeltaR = sqrt( subleadingTruthRecoEtaDiff*subleadingTruthRecoEtaDiff + subleadingTruthRecoPhiDiff*subleadingTruthRecoPhiDiff );
       const double subleadingTruthRecoPtDiffRatio = std::abs( subleadingElectronPt - subleadingTruthPt ) / ( subleadingElectronPt + subleadingTruthPt );
 
-      // skip event if we don't have BOTH leading and subleading matched, each for BOTH deltaR and pT comparisons
-      if( (leadingTruthRecoDeltaR > m_deltaRcutoff) || (leadingTruthRecoPtDiffRatio > m_ptDiffCutoff) || (subleadingTruthRecoDeltaR > m_deltaRcutoff) || (subleadingTruthRecoPtDiffRatio > m_ptDiffCutoff) ) {
+      if( (leadingTruthRecoDeltaR > m_deltaRcutoff)
+	  || (leadingTruthRecoPtDiffRatio > m_ptDiffCutoff)
+	  || (subleadingTruthRecoDeltaR > m_deltaRcutoff)
+	  || (subleadingTruthRecoPtDiffRatio > m_ptDiffCutoff)
+	  ) {
       	return EL::StatusCode::SUCCESS;
       }
     }
   }
 
-  // single photon
+  // PRESELECTION FOR SINGLE PHOTON EVENTS
   if( m_isSinglePhoton ) {
     const xAOD::PhotonContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_photonContainerName ) );
 
-    // check that event contains at least 1 photon (otherwise, skip event)
-    // also store pt, eta and phi of first photon (will be used for truth matching below, if specified)
+    // check that event contains at least 1 photon, otherwise skip event
+    // pt, eta and phi of first photon will be used for truth matching (if truth container is available)
     int photonCount = 0;
     double leadingPhotonPt = 0;
     double leadingPhotonEta = 0;
@@ -616,25 +616,21 @@ EL::StatusCode compareFELinks :: execute ()
       }
     } // end loop over photons
 
-    // if event contains no photons: move onto next event
     if( photonCount < 1 ) return EL::StatusCode::SUCCESS;
 
-    // if we have truth container: check that leading photon can be matched (otherwise, also skip event)
     if( !m_truthContainerName.empty() ) {
       const xAOD::TruthParticleContainer *truthContainer = nullptr;
       ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
 
-      m_truthPDGID = 22;
+      m_truthPDGID = 22; //PDG ID of photon
       int truthCount = 0;
       double leadingTruthPt = 0;
       double leadingTruthEta = 0;
       double leadingTruthPhi = 0;
       for (const xAOD::TruthParticle* truth : *truthContainer) {
-  	// skip if it's not the particle we're looking for
   	if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
   	truthCount++;
-
   	if( truthCount == 1 ) {
   	  leadingTruthPt = truth->pt() * m_conversionFactor;
   	  leadingTruthEta = truth->eta();
@@ -644,26 +640,25 @@ EL::StatusCode compareFELinks :: execute ()
   	}
       } // end loop over truth container
 
-      // calculate deltaR and ptDiffRatio for truth vs reco photon
+      // skip event if reconstructed and truth photon does not match
       const double leadingTruthRecoEtaDiff = leadingPhotonEta - leadingTruthEta;
       const double leadingTruthRecoPhiDiff = leadingPhotonPhi - leadingTruthPhi;
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
       const double leadingTruthRecoPtDiffRatio = std::abs( leadingPhotonPt - leadingTruthPt ) / ( leadingPhotonPt + leadingTruthPt );
 
-      // skip event if we don't have a truth--reco match
       if( (leadingTruthRecoDeltaR > m_deltaRcutoff) || (leadingTruthRecoPtDiffRatio > m_ptDiffCutoff) ) {
   	return EL::StatusCode::SUCCESS;
       }
     }
   }
 
-  // Zmumu
+  // PRESELECTION FOR ZMUMU EVENTS
   if( m_isZmumu ) {
     const xAOD::MuonContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_muonContainerName ) );
 
-    // check that event contains at least 2 muons (otherwise, skip event)
-    // also store pt, eta and phi of first two muons (will be used for truth matching below, if specified)
+    // check that event contains at least 2 muons, otherwise skip event
+    // pt, eta and phi of first two muons will be used for truth matching below (if truth container is available)
     int muonCount = 0;
     double leadingMuonPt = 0;
     double leadingMuonEta = 0;
@@ -698,15 +693,13 @@ EL::StatusCode compareFELinks :: execute ()
       } // end if muonCount > 1
     } // end loop over muons
 
-    // if event contains fewer than two muons: move onto next event
     if( muonCount < 2 ) return EL::StatusCode::SUCCESS;
 
-    // if we have truth container: check that leading muon pair can be matched (otherwise, also skip event)
     if( !m_truthContainerName.empty() ) {
       const xAOD::TruthParticleContainer *truthContainer = nullptr;
       ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
 
-      m_truthPDGID = 13;
+      m_truthPDGID = 13; //PDG ID of muon
       int truthCount = 0;
       double leadingTruthPt = 0;
       double leadingTruthEta = 0;
@@ -715,11 +708,9 @@ EL::StatusCode compareFELinks :: execute ()
       double subleadingTruthEta = 0;
       double subleadingTruthPhi = 0;
       for (const xAOD::TruthParticle* truth : *truthContainer) {
-  	// skip if it's not the particle we're looking for
   	if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
   	truthCount++;
-
   	if( truthCount == 1 ) {
   	  leadingTruthPt = truth->pt() * m_conversionFactor;
   	  leadingTruthEta = truth->eta();
@@ -745,7 +736,7 @@ EL::StatusCode compareFELinks :: execute ()
   	} // end if truthCount > 1
       } // end loop over truth container
 
-      // calculate deltaR and ptDiffRatio for truth vs reco muons, for both leading and subleading
+      // skip event if either of the reconstructed leading or subleading muons don't match the truth
       const double leadingTruthRecoEtaDiff = leadingMuonEta - leadingTruthEta;
       const double leadingTruthRecoPhiDiff = leadingMuonPhi - leadingTruthPhi;
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
@@ -756,14 +747,17 @@ EL::StatusCode compareFELinks :: execute ()
       const double subleadingTruthRecoDeltaR = sqrt( subleadingTruthRecoEtaDiff*subleadingTruthRecoEtaDiff + subleadingTruthRecoPhiDiff*subleadingTruthRecoPhiDiff );
       const double subleadingTruthRecoPtDiffRatio = std::abs( subleadingMuonPt - subleadingTruthPt ) / ( subleadingMuonPt + subleadingTruthPt );
 
-      // skip event if we don't have BOTH leading and subleading matched, each for BOTH deltaR and pT comparisons
-      if( (leadingTruthRecoDeltaR > m_deltaRcutoff) || (leadingTruthRecoPtDiffRatio > m_ptDiffCutoff) || (subleadingTruthRecoDeltaR > m_deltaRcutoff) || (subleadingTruthRecoPtDiffRatio > m_ptDiffCutoff) ) {
+      if( (leadingTruthRecoDeltaR > m_deltaRcutoff)
+	  || (leadingTruthRecoPtDiffRatio > m_ptDiffCutoff)
+	  || (subleadingTruthRecoDeltaR > m_deltaRcutoff)
+	  || (subleadingTruthRecoPtDiffRatio > m_ptDiffCutoff)
+	  ) {
   	return EL::StatusCode::SUCCESS;
       }
     }
   }
 
-  // ttbar
+  // PRESELECTION FOR TTBAR EVENTS
   if( m_isttbar ) {
     const xAOD::TruthParticleContainer *truthContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
@@ -776,7 +770,8 @@ EL::StatusCode compareFELinks :: execute ()
     std::vector<float> truthLeptonPhi;
     std::vector<float> truthLeptonE;
     for( const xAOD::TruthParticle *truth : *truthContainer ) {
-      if( std::abs( truth->pdgId() ) != 11 && std::abs( truth->pdgId() ) != 13 ) continue; //skip if not electron or muon
+      // skip any particles that aren't electrons or muons
+      if( std::abs( truth->pdgId() ) != 11 && std::abs( truth->pdgId() ) != 13 ) continue;
 
       foundTruthLepton = true;
       leptonID.push_back( truth->pdgId() );
@@ -788,10 +783,9 @@ EL::StatusCode compareFELinks :: execute ()
       if( leptonID.size() == 2 ) break;
     } //end loop over truth particles
 
-    // skip event if both tops decayed hadronically ... though this shouldn't be the case for nonallhad ttbar
     if( !foundTruthLepton ) return EL::StatusCode::SUCCESS;
 
-    // if found a lepton(s), check that reco containers contain minimum required number of same lepton
+    // if a lepton(s) is found, check that corresponding reconstructed containers have at least the same number of leptons
     int numElectronsExpected = 0;
     int numMuonsExpected = 0;
     int numElectronsFound = 0;
@@ -800,10 +794,11 @@ EL::StatusCode compareFELinks :: execute ()
     std::vector<float> recoLeptonEta;
     std::vector<float> recoLeptonPhi;
     std::vector<float> recoLeptonE;
-    for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) { //note: the static cast will do funny things if "lepton" is negative! (zero is ok)
-      if( std::abs( leptonID.at( lepton ) ) == 11 ) { //check for reco electron
+    for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) {
+      if( std::abs( leptonID.at( lepton ) ) == 11 ) {
 	numElectronsExpected++;
 
+	// fetch the corresponding electron from the reconstructed electron container
 	const xAOD::ElectronContainer *electrons = nullptr;
 	ANA_CHECK( evtStore()->retrieve( electrons, m_electronContainerName ) );
 
@@ -820,9 +815,10 @@ EL::StatusCode compareFELinks :: execute ()
 
 	  electronCount++;
 	}
-      } else if( std::abs( leptonID.at( lepton ) ) == 13 ) { //check for reco muon
+      } else if( std::abs( leptonID.at( lepton ) ) == 13 ) {
 	numMuonsExpected++;
 
+	// fetch the corresponding muon from the reconstructed muon container
 	const xAOD::MuonContainer *muons = nullptr;
 	ANA_CHECK( evtStore()->retrieve( muons, m_muonContainerName ) );
 
@@ -845,7 +841,7 @@ EL::StatusCode compareFELinks :: execute ()
     if( numElectronsExpected != numElectronsFound || numMuonsExpected != numMuonsFound )
       return EL::StatusCode::SUCCESS;
 
-    // check that electron or muon passes truth-matching requirements based on DeltaR and pTdiffRatio
+    // skip event if any of the reconstructed lepton(s) don't match the truth
     for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) {
       const float etaDiff = truthLeptonEta.at( lepton ) - recoLeptonEta.at( lepton );
       const float phiDiff = truthLeptonPhi.at( lepton ) - recoLeptonPhi.at( lepton );
@@ -874,40 +870,36 @@ EL::StatusCode compareFELinks :: execute ()
     m_e.clear();
   }
 
-
-
   /********************************************************
-   * If we passed preliminary checks, start filling trees
+   *  END OF PRESELECTION; START FILLING TREES
    ********************************************************/
 
   // fetch primary vertex information for this event for later reference (needed to find number of jet tracks)
   size_t vtxIdx = 0;
-  m_nv = 0; //reset for each event
-  m_npv = 0; //reset for each event
-  m_npuv = 0; //reset for each event
+  m_nv = 0;
+  m_npv = 0;
+  m_npuv = 0;
   const xAOD::Vertex *priVtx = nullptr;
   const xAOD::VertexContainer* vertices = nullptr;
   if(evtStore()->retrieve(vertices, "PrimaryVertices").isSuccess()) {
     for(const xAOD::Vertex* vtx : *vertices) {
+      m_nv++;
+
       if(vtx->vertexType() == xAOD::VxType::PriVtx) {
 	if( !priVtx ) priVtx = vtx;
 	m_npv++;
-	//break;
       }
 
       if(vtx->vertexType() == xAOD::VxType::PileUp) {
-	m_npuv++; //count number of pile up vertices in event
+	m_npuv++;
       }
-
-      //count total number of vertices in the "PrimaryVertices" container?
-      m_nv++;
     }
   } else {
     ANA_MSG_WARNING( "Failed to retrieve primary vertex container" );
   }
   vtxIdx = priVtx->index();
 
-  // Grab run and event number, fill info tree
+  // EVENT INFO
   const xAOD::EventInfo *ei = nullptr;
   ANA_CHECK( evtStore()->retrieve( ei , "EventInfo" ) );
   m_runNumber = ei->runNumber();
@@ -917,45 +909,23 @@ EL::StatusCode compareFELinks :: execute ()
   m_mcEventWeights = ei->mcEventWeights().at(0);
   m_infoTree->Fill();
 
-  /// PFLOW JETS
+  // PFLOW JETS
   if( !m_pflowJetContainerName.empty() ) {
     // tell the tree to go to the file
-    m_pflowJetTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
-    // // get charged and neutral PFO (FE) containers and combine them into one "CHSParticleFlowObjects" container
-    // SG::ReadHandle<xAOD::FlowElementContainer> inNeutralFEHandle = makeHandle(m_inNeutralFEKey);
-    // SG::ReadHandle<xAOD::FlowElementContainer> inChargedFEHandle = makeHandle(m_inChargedFEKey);
+    // doesn't actually seem to be needed (at least when running locally - maybe necessary on grid? leaving the line here as a comment for now.)
+    //m_pflowJetTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
 
     SG::ReadHandle<xAOD::FlowElementContainer> inGlobalNeutralFEHandle = makeHandle(m_inGlobalNeutralFEKey);
     SG::ReadHandle<xAOD::FlowElementContainer> inGlobalChargedFEHandle = makeHandle(m_inGlobalChargedFEKey);
-
-    // ConstDataVector<xAOD::FlowElementContainer> *m_FlowElements = new ConstDataVector<xAOD::FlowElementContainer>(SG::VIEW_ELEMENTS);
-
-    // (*m_FlowElements).assign((*inNeutralFEHandle).begin(), (*inNeutralFEHandle).end());
-    // (*m_FlowElements).insert((*m_FlowElements).end(),
-    // 			     (*inChargedFEHandle).begin(),
-    // 			     (*inChargedFEHandle).end());
-
-    // ANA_CHECK(evtStore()->record(m_FlowElements, "CHSParticleFlowObjects"));
-
-    // prepare PFlow jet container
     SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetContKey);
-
-    // old(?) way of retrieving jet container
-    // const xAOD::JetContainer *inContainer = nullptr;
-    // ANA_CHECK( evtStore()->retrieve( inContainer, m_pflowJetContainerName ) );
-
-    // also retrieve truth particle container -- needed for comparing calpfo_... values later
-    const xAOD::TruthParticleContainer *truthParticles = nullptr;
-    ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
+    SG::ReadHandle<xAOD::TruthParticleContainer> truthParticles("TruthParticles");
 
     // placeholder if no scale factor information
     static const std::vector<float> junk(1,-999);
 
     // loop over jets
     for( const xAOD::Jet *jet : *inContainer ) {
-
-      // for each jet, prepare vector to store PFO index of each constituent
+      // vectors to store index and energy of constituents
       std::vector<int> chargedPFOindex;
       std::vector<int> neutralPFOindex;
       std::vector<double> chargedPFOenergy;
@@ -969,47 +939,29 @@ EL::StatusCode compareFELinks :: execute ()
       // loop over jet constituents
       ANA_MSG_VERBOSE( "Number of jet constituents: " << jet->numConstituents() );
       for( size_t consti = 0; consti < jet->numConstituents(); consti++) {
-
-      	//Old comment: Points to the combined CHSParticleFlowObjects container
-	//Updated comment: Should now point to CHSGParticleFlowObjects
+	// constituents point to the CHSG PFlow containers!!! Note that only the Global containers has calpfo decoration
       	const xAOD::FlowElement *fe = static_cast<const xAOD::FlowElement*>(jet->rawConstituent(consti));
 
-      	//Need to figure out now if this is a charged or neutral constituent (use index for this) (note: doing this b/c no aux data for fe->isCharged())
-      	//Check if constituent in CHSChargedParticleFlowObjects with index of fe is the same as the fe we're looking at right now
-      	//if(inChargedFEHandle->size() > fe->index() && inChargedFEHandle->at(fe->index()) == fe){
-	if( fe->isCharged() ){
-      	  // Get the original constituent (before four-vector modifications, etc) from the JetETMissChargedParticleFlowObjects container (using index)
+	if( fe->isCharged() ) {
+      	  // Get the original constituent (before four-vector modifications, etc) from the Global PFlow containers
       	  // This object can be then used to retrieve additional moments like the links to other objects
-      	  const xAOD::FlowElement *fe_original = inGlobalChargedFEHandle->at(fe->index());
-	  //const xAOD::FlowElement *fe_original = fe; //lol probs not needed
-
-	  chargedPFOindex.push_back(fe_original->index());
-	  chargedPFOenergy.push_back(fe_original->e() * m_conversionFactor);
-
-	  // // not sure if this is necessary
-	  // neutralPFOindex.push_back(-10);
-	  // neutralPFOenergy.push_back(-10);
-
-      	  ANA_MSG_VERBOSE( "Charged Flow Element index: " << fe_original->index() );
+      	  const xAOD::FlowElement *fe_global = inGlobalChargedFEHandle->at(fe->index());
+	  chargedPFOindex.push_back(fe_global->index());
+	  chargedPFOenergy.push_back(fe_global->e() * m_conversionFactor);
+      	  ANA_MSG_VERBOSE( "Charged Flow Element index: " << fe_global->index() );
       	}
-      	//Same but for neutral FEs
-      	//Check if constituent in CHSNeutralParticleFlowObjects with index of fe is the same as the fe we're looking at right now
-      	//else if(inNeutralFEHandle->size() > fe->index() && inNeutralFEHandle->at(fe->index())== fe){
-	else if( !fe->isCharged() ){
-      	  // Get the original constituent (before four-vector modifications, etc) from the JetETMissNeutralParticleFlowObjects container (using index) 
+	else if( !fe->isCharged() ) {
+      	  // Get the original constituent (before four-vector modifications, etc) from the Global PFlow containers
       	  // This object can be then used to retrieve additional moments like the links to other objects
-      	  const xAOD::FlowElement *fe_original = inGlobalNeutralFEHandle->at(fe->index());
-	  //const xAOD::FlowElement *fe_original = fe;
+      	  const xAOD::FlowElement *fe_global = inGlobalNeutralFEHandle->at(fe->index());
+	  neutralPFOindex.push_back(fe_global->index());
+	  neutralPFOenergy.push_back(fe_global->e() * m_conversionFactor);
+      	  ANA_MSG_VERBOSE( "Neutral Flow Element index: " << fe_global->index() );
 
-	  neutralPFOindex.push_back(fe_original->index());
-	  neutralPFOenergy.push_back(fe_original->e() * m_conversionFactor);
-
-      	  ANA_MSG_VERBOSE( "Neutral Flow Element index: " << fe_original->index() );
-
-	  // for neutral PFOs, also save truth information on what particles deposited how much energy
-	  // note: this is a vector because it's possible for multiple particles to have contributed to this PFO (the 3 largest contributions are saved in this decoration)
+	  // for neutral PFOs, also save calibration hit information
+	  // by default, (up to) the three largest contributions to each neutral FE is saved to the calpfo vector
 	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
-	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe_original);
+	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe_global);
 	  std::vector<Int_t> truthIDs;
 	  std::vector<Int_t> truthBarcodes;
 	  std::vector<Double_t> truthEnergies; //note: this is the amount of energy deposited in the nPFO by the truth particle
@@ -1017,7 +969,7 @@ EL::StatusCode compareFELinks :: execute ()
       	  ANA_MSG_VERBOSE( "Got the calpfo vector for this NPFO! Here are its details:" );
 
 	  for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
-	    //loop over truth particles to find corresponding barcode
+	    // fine truth particles with matching barcode
 	    bool foundMatchingBarcode = false;
 	    for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
 	      if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
@@ -1025,10 +977,9 @@ EL::StatusCode compareFELinks :: execute ()
 	      truthIDs.push_back( truthParticle->pdgId() );
 	      truthBarcodes.push_back( truthParticle->barcode() );
 	      truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
-	      //truthEnergies.push_back( truthParticle->e() * m_conversionFactor );
 
 	      ANA_MSG_VERBOSE( "[jet constituent NPFO]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited in NPFO: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
-	      break; //found matching truth particle, move onto the next calpfo contribution
+	      break;
 	    }
 	    if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
 	  } //end loop over calpfo vector
@@ -1050,62 +1001,37 @@ EL::StatusCode compareFELinks :: execute ()
       m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
       m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
 
-      // fetch b-tag and scale factor information
-      SG::AuxElement::ConstAccessor< char > isTag("BTag_DL1r_FixedCutBEff_77"); // int: 0 = not b-tagged, 1 = tagged
-      SG::AuxElement::ConstAccessor< std::vector<float> > sf("BTag_SF_DL1r_FixedCutBEff_77"); // scale factors
-
+      // b-tag and scale factor
+      SG::AuxElement::ConstAccessor< char > isTag("BTag_DL1r_FixedCutBEff_77"); // actually an int: 0 = not b-tagged, 1 = tagged
+      SG::AuxElement::ConstAccessor< std::vector<float> > sf("BTag_SF_DL1r_FixedCutBEff_77");
       m_isTag.push_back( isTag.isAvailable(*jet) ? isTag(*jet) : -1 );
       m_sf.push_back( sf.isAvailable(*jet) ? sf(*jet) : junk);
-
-      // test that tagging information is extracted properly
       if( isTag.isAvailable(*jet) && msgLvl(MSG::VERBOSE) ) std::cout << "Jet b-tag flag: " << (int)isTag(*jet) << "\n";
 
-      // find number of tracks associated with jet
+      // number of tracks associated with jet
       static const SG::AuxElement::ConstAccessor< std::vector<int> > acc("NumTrkPt500");
       int numTracks = acc(*jet).at(vtxIdx);
       m_nTrk.push_back( numTracks );
-
-      // print number of tracks
       ANA_MSG_VERBOSE( "Number of jet tracks: " << numTracks );
 
-      // fetch JVT cut info
+      // JVT
       static const SG::AuxElement::ConstAccessor< char > passJVT("JetJVT_Passed_Tight");
       m_passJVT.push_back( passJVT.isAvailable(*jet) ? passJVT(*jet) : -1 );
-
-      // check JVT pass/fail values
       ANA_MSG_VERBOSE( "Pass JVT cut: " << (int)passJVT(*jet) );
 
-      // get constituent-scale quantities
+      // constituent-scale quantities
       xAOD::JetFourMom_t constit4vec = jet->getAttribute<xAOD::JetFourMom_t>("JetConstitScaleMomentum");
       m_pt_constit.push_back( constit4vec.Pt() * m_conversionFactor );
       m_eta_constit.push_back( constit4vec.Eta() );
       m_phi_constit.push_back( constit4vec.Phi() );
       m_e_constit.push_back( constit4vec.E() * m_conversionFactor );
 
-      // for each jet, loop over all other jets, check if there are any with pt > 7 GeV within deltaR < 0.6
+      // isolation check: see if there are any other jets with pt > 7 GeV within deltaR < 0.6
       bool foundClosebyJet = false;
       for( const xAOD::Jet *jet2 : *inContainer ) {
-	// obviously, don't compare jet with itself
-	if( jet == jet2 )
+	if( jet2 == jet || jet2->pt() < 7000 )
 	  continue;
 
-	// // this method uses constituent-level jet pT for the comparison
-	// // only check against jets with pT > 7 GeV
-	// xAOD::JetFourMom_t constit4vec2 = jet2->getAttribute<xAOD::JetFourMom_t>("JetConstitScaleMomentum");
-	// if( constit4vec2.Pt() < 7000 )
-	//   continue;
-
-	// // now check deltaR between jets
-	// double jetPhiDiff = constit4vec.Phi() - constit4vec2.Phi();
-	// double jetEtaDiff = constit4vec.Eta() - constit4vec2.Eta();
-	// double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
-
-	// this method uses calibrated jet pT for the comparison
-	// only check against jets with pT > 7 GeV
-	if( jet2->pt() < 7000 )
-	  continue;
-
-	// now check deltaR between jets
 	double jetPhiDiff = jet->phi() - jet2->phi();
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
@@ -1119,7 +1045,7 @@ EL::StatusCode compareFELinks :: execute ()
       if( !foundClosebyJet ) m_isIsoJetDR0p6.push_back( 1 );
       else m_isIsoJetDR0p6.push_back( 0 );
 
-      // get detector eta
+      // detector eta
       m_detEta.push_back( jet->getAttribute<float>("DetectorEta") );
 
     } //end loop over jets
@@ -1151,32 +1077,13 @@ EL::StatusCode compareFELinks :: execute ()
     m_calpfo_NLeadingTruthParticleEnergy.clear();
   }
 
-  /// TOPO JETS
+  // TOPO JETS
   if( !m_topoJetContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_topoJetTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
     const xAOD::JetContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_topoJetContainerName ) );
 
     // placeholder if no scale factor information
     static const std::vector<float> junk(1,-999);
-
-    // fetch primary vertex information for this event for later reference (needed to find number of jet tracks)
-    size_t vtxIdx = 0;
-    const xAOD::Vertex *priVtx = nullptr;
-    const xAOD::VertexContainer* vertices = nullptr;
-    if(evtStore()->retrieve(vertices, "PrimaryVertices").isSuccess()) {
-      for(const xAOD::Vertex* vtx : *vertices) {
-	if(vtx->vertexType() == xAOD::VxType::PriVtx) {
-	  priVtx = vtx;
-	  break;
-	}
-      }
-    } else {
-      ANA_MSG_WARNING( "Failed to retrieve primary vertex container" );
-    }
-    vtxIdx = priVtx->index();
 
     // loop over jets
     for( const xAOD::Jet *jet : *inContainer ) {
@@ -1185,32 +1092,25 @@ EL::StatusCode compareFELinks :: execute ()
       m_phi.push_back( jet->phi() );
       m_e.push_back( jet->e() * m_conversionFactor );
 
-      // fetch b-tag and scale factor information
-      SG::AuxElement::ConstAccessor< char > isTag("BTag_DL1r_FixedCutBEff_77"); // int: 0 = not b-tagged, 1 = tagged
-      SG::AuxElement::ConstAccessor< std::vector<float> > sf("BTag_SF_DL1r_FixedCutBEff_77"); // scale factors
-
+      // b-tag and scale factor
+      SG::AuxElement::ConstAccessor< char > isTag("BTag_DL1r_FixedCutBEff_77"); // actually an int: 0 = not b-tagged, 1 = tagged
+      SG::AuxElement::ConstAccessor< std::vector<float> > sf("BTag_SF_DL1r_FixedCutBEff_77");
       m_isTag.push_back( isTag.isAvailable(*jet) ? isTag(*jet) : -1 );
       m_sf.push_back( sf.isAvailable(*jet) ? sf(*jet) : junk);
-
-      // test that tagging information is extracted properly
       if( isTag.isAvailable(*jet) && msgLvl(MSG::VERBOSE) ) std::cout << "Jet b-tag flag: " << (int)isTag(*jet) << "\n";
 
-      // find number of tracks associated with jet
+      // number of tracks associated with jet
       static const SG::AuxElement::ConstAccessor< std::vector<int> > acc("NumTrkPt500");
       int numTracks = acc(*jet).at(vtxIdx);
       m_nTrk.push_back( numTracks );
-
-      // print number of tracks
       ANA_MSG_VERBOSE( "Number of jet tracks: " << numTracks );
 
-      // fetch JVT cut info
+      // JVT
       static const SG::AuxElement::ConstAccessor< char > passJVT("JetJVT_Passed_Tight");
       m_passJVT.push_back( passJVT.isAvailable(*jet) ? passJVT(*jet) : -1 );
-
-      // check JVT pass/fail values
       ANA_MSG_VERBOSE( "Pass JVT cut: " << (int)passJVT(*jet) );
 
-      // get detector eta
+      // detector eta
       m_detEta.push_back( jet->getAttribute<float>("DetectorEta") );
     }
 
@@ -1229,96 +1129,71 @@ EL::StatusCode compareFELinks :: execute ()
     m_detEta.clear();
   }
 
-  /// ELECTRONS
+  // ELECTRONS
   if( !m_electronContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_electronTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
-    const xAOD::ElectronContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_electronContainerName ) );
-
-    // also retrieve truth particle container and define neutral PFO container -- need this to access and use calpfo vector
-    // note that these correspond to the Global containers
-    SG::ReadHandle<xAOD::FlowElementContainer> inGlobalNeutralFEHandle = makeHandle(m_inGlobalNeutralFEKey);
-    SG::ReadHandle<xAOD::FlowElementContainer> inGlobalChargedFEHandle = makeHandle(m_inGlobalChargedFEKey);
     const xAOD::TruthParticleContainer *truthParticles = nullptr;
+    const xAOD::ElectronContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
-
-    // note: each electron will point to a VECTOR of FELinks
-    // here, the outer vector is for each electron in the event; nested vector is for each FE linked to corresponding electron
-    std::vector<std::vector<ElementLink<xAOD::FlowElementContainer>>> electronNFELinks;
-    std::vector<std::vector<ElementLink<xAOD::FlowElementContainer>>> electronCFELinks;
+    ANA_CHECK( evtStore()->retrieve( inContainer, m_electronContainerName ) );
 
     Int_t countElectron = 0;
     for( const xAOD::Electron *electron : *inContainer ) {
-      // accessor for checking whether electron passed identification selections
+      // identification selection check
       SG::AuxElement::ConstAccessor< char > passSel("passSel");
 
-      // prepare vector to store PFO indices and energies for the current electron
+      // vectors to store FE indices and energies for the current electron
       std::vector<int> neutralPFOindex;
       std::vector<int> chargedPFOindex;
       std::vector<double> neutralPFOenergy;
       std::vector<double> chargedPFOenergy;
 
-      // OLD COMMENT: fetch neutral FE links: electron->JetETMissNeutral and JetETMissNeutral->GlobalNeutral
-      // MODELV2: decoration points straight to Global container
+      // neutral FE links: electron->JetETMissNeutral and JetETMissNeutral->GlobalNeutral
       SG::ReadDecorHandle<xAOD::ElectronContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> neutralFEReadDecorHandle(m_electronNeutralFEReadDecorKey);
-      //SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> neutralGlobalFEReadDecorHandle(m_neutralOriginalToGlobalFEReadDecorKey);
-      electronNFELinks.push_back( neutralFEReadDecorHandle(*electron) ); // note that this corresponds to FE in the JetETMiss container
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> neutralGlobalFEReadDecorHandle(m_neutralOriginalToGlobalFEReadDecorKey);
+      std::vector<ElementLink<xAOD::FlowElementContainer>> electronNFELinks = neutralFEReadDecorHandle(*electron); //this corresponds to FE in the JetETMiss container
 
-      // OLD COMMENT: fetch charged FE links: electron->JetETMissCharged, JetETMissCharged->GlobalCharged, and JetETMissCharged->GlobalNeutral (for cFEs that create new nFEs in Global)
-      // MODELV2: decoration points straight to Global container
+      // charged FE links: electron->JetETMissCharged, JetETMissCharged->GlobalCharged, and JetETMissCharged->GlobalNeutral (for cFEs that create new nFEs in Global)
       SG::ReadDecorHandle<xAOD::ElectronContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> chargedFEReadDecorHandle(m_electronChargedFEReadDecorKey);
-      //SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> chargedGlobalFEReadDecorHandle(m_chargedOriginalToGlobalFEReadDecorKey);
-      //SG::ReadDecorHandle<xAOD::FlowElementContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> chargedOriginalToNeutralGlobalFEReadDecorHandle(m_chargedOriginalToNeutralGlobalFEReadDecorKey);
-      electronCFELinks.push_back( chargedFEReadDecorHandle(*electron) ); // note that this corresponds to FE in the JetETMiss container
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> chargedGlobalFEReadDecorHandle(m_chargedOriginalToGlobalFEReadDecorKey);
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> chargedOriginalToNeutralGlobalFEReadDecorHandle(m_chargedOriginalToNeutralGlobalFEReadDecorKey);
+      std::vector<ElementLink<xAOD::FlowElementContainer>> electronCFELinks = chargedFEReadDecorHandle(*electron); //this corresponds to FE in the JetETMiss container
 
-      // vectors to store calpfo info
-      // outer vector is for each neutral FE linked to the current electron; inner vector is for each entry in the calpfo vector for the corresponding neutral FE
+      // vectors to store calibration hit information for each neutral FE
+      // by default, (up to) the three largest contributions is saved to the calpfo vector
       std::vector<std::vector<int>> calpfo_NLeadingTruthParticlePdgId;
       std::vector<std::vector<int>> calpfo_NLeadingTruthParticleBarcode;
       std::vector<std::vector<double>> calpfo_NLeadingTruthParticleEnergy;
 
       // loop over each neutral FE linked to the electron
-      for( ElementLink<xAOD::FlowElementContainer> feLink : electronNFELinks.at(countElectron) ) {
+      for( ElementLink<xAOD::FlowElementContainer> feLink : electronNFELinks ) {
 	if( feLink.isValid() ) {
-	  // OLD COMMENT: this corresponds to neutral FE in the JetETMiss container
-	  // MODELV2: this now points to Global
-	  //const xAOD::FlowElement *electronNeutralOriginalFlowElement = *feLink;
-	  const xAOD::FlowElement *electronNeutralGlobalFlowElement = *feLink;
+	  // this points to neutral FE in the JetETMiss container
+	  const xAOD::FlowElement *electronNeutralOriginalFlowElement = *feLink;
 
-	  // // fetch link from neutral JetETMiss->Global
-	  // ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = neutralGlobalFEReadDecorHandle(*electronNeutralOriginalFlowElement);
-	  // if( !feLinkToGlobal.isValid() ) ANA_MSG_INFO( "FE Link to neutral Global is NOT valid... this message should NEVER get printed." );
-	  // else ANA_MSG_VERBOSE( "FE Link to neutral Global is valid. As it should be (always)." );
+	  // get corresponding FE in the Global container
+	  ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = neutralGlobalFEReadDecorHandle(*electronNeutralOriginalFlowElement);
+	  if( !feLinkToGlobal.isValid() ) ANA_MSG_INFO( "FE Link to neutral Global is NOT valid... this message should NEVER get printed." );
+	  else ANA_MSG_VERBOSE( "FE Link to neutral Global is valid. As it should be (always)." );
 
-	  // this now corresponds to neutral FE in the Global container
-	  // MODELV2: this is no longer needed
-	  //const xAOD::FlowElement *electronNeutralGlobalFlowElement = *feLinkToGlobal;
-
-	  // get the index and energy according to FE in the Global container
+	  const xAOD::FlowElement *electronNeutralGlobalFlowElement = *feLinkToGlobal;
 	  neutralPFOindex.push_back(electronNeutralGlobalFlowElement->index());
 	  neutralPFOenergy.push_back(electronNeutralGlobalFlowElement->e() * m_conversionFactor);
 
-	  // printouts for debug
+	  // for debug
 	  ANA_MSG_VERBOSE( "Electron number " << countElectron << " is linked to a neutral FE with index: " << electronNeutralGlobalFlowElement->index() << " with energy: " << electronNeutralGlobalFlowElement->e() * m_conversionFactor << " GeV." );
 	  if( electronNeutralGlobalFlowElement->isCharged() )
 	    ANA_MSG_INFO( "Umm... expecting a neutral FE but apparently it is charged?? Lol this shouldn't ever get printed." );
 
-	  // save calibration hit information for neutrals: what particles deposited energy (and how much)
-	  // note: this is a vector because it's possible for multiple particles to have contributed to this PFO (default: 3 largest contributions are in the calpfo decoration)
-	  // get the corresponding neutral PFO from the FlowElement (should be the same index)
+	  // save calibration hit information
 	  ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
 	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
-	  const xAOD::FlowElement *electronNPFO = inGlobalNeutralFEHandle->at(electronNeutralGlobalFlowElement->index()); // fetch the info from the Global container
-	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNPFO);
+	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNeutralGlobalFlowElement);
 
 	  std::vector<Int_t> truthIDs;
 	  std::vector<Int_t> truthBarcodes;
-	  std::vector<Double_t> truthEnergies; //note: this is the amount of energy DEPOSITED in the neutral FE by the truth particle (not the energy of the particle itself)
+	  std::vector<Double_t> truthEnergies;
 	  ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
 	  for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
-	    //loop over truth particles to find corresponding barcode
 	    bool foundMatchingBarcode = false;
 	    for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
 	      if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
@@ -1336,91 +1211,70 @@ EL::StatusCode compareFELinks :: execute ()
 	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
 	  calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
 	}
-      }
+      } //end loop over linked neutral FEs
 
-      for( ElementLink<xAOD::FlowElementContainer> feLink : electronCFELinks.at(countElectron) ) {
+      // loop over each charged FE linked to the electron
+      for( ElementLink<xAOD::FlowElementContainer> feLink : electronCFELinks ) {
 	if( feLink.isValid() ) {
-	  // OLD COMMENT: this corresponds to charged FE in the JetETMiss container
-	  // MODELV2: this now points to Global
-	  //const xAOD::FlowElement *electronChargedOriginalFlowElement = *feLink;
-	  const xAOD::FlowElement *electronChargedGlobalFlowElement = *feLink;
+	  // this points to charged FE in the JetETMiss container
+	  const xAOD::FlowElement *electronChargedOriginalFlowElement = *feLink;
 
-	  // MODELV2: add the block below
-	  // get the index and energy according to FE in the charged Global container
-	  chargedPFOindex.push_back(electronChargedGlobalFlowElement->index());
-	  chargedPFOenergy.push_back(electronChargedGlobalFlowElement->e() * m_conversionFactor);
-
-	  // printouts
+	  // for debug
 	  ANA_MSG_VERBOSE( "Electron number " << countElectron << ", charged Global FE link has index: " << electronChargedGlobalFlowElement->index() << " and energy: " << electronChargedGlobalFlowElement->e() * m_conversionFactor << " GeV." );
 
-	  // // OLD COMMENT: fetch link from charged JetETMiss -> [charged/neutral] Global
-	  // // MODELV2: no longer needed
-	  // ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = chargedGlobalFEReadDecorHandle(*electronChargedOriginalFlowElement);
-	  // if( feLinkToGlobal.isValid() ) {
-	  //   ANA_MSG_VERBOSE( "FE Link from charged JetETMiss to charged Global is valid." );
+	  // get corresponding FE in the Global container
+	  ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = chargedGlobalFEReadDecorHandle(*electronChargedOriginalFlowElement);
+	  if( feLinkToGlobal.isValid() ) {
+	    ANA_MSG_VERBOSE( "FE Link from charged JetETMiss to charged Global is valid." );
+	    const xAOD::FlowElement *electronChargedGlobalFlowElement = *feLinkToGlobal;
+	    chargedPFOindex.push_back(electronChargedGlobalFlowElement->index());
+	    chargedPFOenergy.push_back(electronChargedGlobalFlowElement->e() * m_conversionFactor);
 
-	  //   // this now corresponds to charged FE in the charged Global container
-	  //   const xAOD::FlowElement *electronChargedGlobalFlowElement = *feLinkToGlobal;
+	    // for debug
+	    ANA_MSG_VERBOSE( "Electron number " << countElectron << ", charged Global FE link has index: " << electronChargedGlobalFlowElement->index() );
+	    ANA_MSG_VERBOSE( "Compare the index and energy of CHARGED original vs global FE linked to electron... Original: index " << electronChargedOriginalFlowElement->index() << " with energy " << electronChargedOriginalFlowElement->e() * m_conversionFactor << " GeV ... Global: index " << electronChargedGlobalFlowElement->index() << " with energy " << electronChargedGlobalFlowElement->e() * m_conversionFactor << " GeV." );
 
-	  //   // get the index and energy according to FE in the charged Global container
-	  //   chargedPFOindex.push_back(electronChargedGlobalFlowElement->index());
-	  //   chargedPFOenergy.push_back(electronChargedGlobalFlowElement->e() * m_conversionFactor);
+	  } else {
+	    // if element link from charged JetETMiss to charged Global is NOT valid, check if there are links from charged JetETMiss to NEUTRAL Global instead
+	    std::vector<ElementLink<xAOD::FlowElementContainer>> feLinkChargedOriginalToNeutralGlobal = chargedOriginalToNeutralGlobalFEReadDecorHandle(*electronChargedOriginalFlowElement);
+	    for( ElementLink<xAOD::FlowElementContainer> feLinkToNeutralGlobal : feLinkChargedOriginalToNeutralGlobal ) {
+	      if( feLinkToNeutralGlobal.isValid() ) { 
+	  	ANA_MSG_VERBOSE( "FE Link to charged Global is NOT valid... link points to FEs in neutral Global instead." );
+	  	const xAOD::FlowElement *electronNeutralGlobalFlowElement = *feLinkToNeutralGlobal;
+	  	neutralPFOindex.push_back(electronNeutralGlobalFlowElement->index());
+	  	neutralPFOenergy.push_back(electronNeutralGlobalFlowElement->e() * m_conversionFactor);
 
-	  //   // printouts
-	  //   ANA_MSG_VERBOSE( "Electron number " << countElectron << ", charged Global FE link has index: " << electronChargedGlobalFlowElement->index() );
-	  //   ANA_MSG_VERBOSE( "Compare the index and energy of CHARGED original vs global FE linked to electron... Original: index " << electronChargedOriginalFlowElement->index() << " with energy " << electronChargedOriginalFlowElement->e() * m_conversionFactor << " GeV ... Global: index " << electronChargedGlobalFlowElement->index() << " with energy " << electronChargedGlobalFlowElement->e() * m_conversionFactor << " GeV." );
+	  	// save calibration hit information
+	  	ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
+	  	SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
+	  	std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNeutralGlobalFlowElement);
 
-	  // } else {
-	  //   // if element link from charged JetETMiss to charged Global is NOT valid, check if there are links from charged JetETMiss to NEUTRAL Global instead
-	  //   // loop over all the neutral Global FEs that the charged JetETMiss FE is linked to
-	  //   std::vector<ElementLink<xAOD::FlowElementContainer>> feLinkChargedOriginalToNeutralGlobal = chargedOriginalToNeutralGlobalFEReadDecorHandle(*electronChargedOriginalFlowElement);
-	  //   for( ElementLink<xAOD::FlowElementContainer> feLinkToNeutralGlobal : feLinkChargedOriginalToNeutralGlobal ) {
-	  //     if( feLinkToNeutralGlobal.isValid() ) { 
-	  // 	ANA_MSG_VERBOSE( "FE Link to charged Global is NOT valid... link points to FEs in neutral Global instead." );
+	  	std::vector<Int_t> truthIDs;
+	  	std::vector<Int_t> truthBarcodes;
+	  	std::vector<Double_t> truthEnergies;
+	  	ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
+	  	for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
+	  	  bool foundMatchingBarcode = false;
+	  	  for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
+	  	    if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
+	  	    foundMatchingBarcode = true;
+	  	    truthIDs.push_back( truthParticle->pdgId() );
+	  	    truthBarcodes.push_back( truthParticle->barcode() );
+	  	    truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
 
-	  // 	// this now corresponds to neutral FE in the Global container
-	  // 	const xAOD::FlowElement *electronNeutralGlobalFlowElement = *feLinkToNeutralGlobal;
-
-	  // 	// get the index and energy according to FE in the Global container
-	  // 	neutralPFOindex.push_back(electronNeutralGlobalFlowElement->index());
-	  // 	neutralPFOenergy.push_back(electronNeutralGlobalFlowElement->e() * m_conversionFactor);
-
-	  // 	// save calibration hit information for neutrals: what particles deposited energy (and how much)
-	  // 	// note: this is a vector because it's possible for multiple particles to have contributed to this PFO (default: 3 largest contributions are in the calpfo decoration)
-	  // 	// get the corresponding neutral PFO from the FlowElement (should be the same index)
-	  // 	ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
-	  // 	SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
-	  // 	const xAOD::FlowElement *electronNPFO = inGlobalNeutralFEHandle->at(electronNeutralGlobalFlowElement->index()); // fetch the info from the Global container
-	  // 	std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNPFO);
-
-	  // 	std::vector<Int_t> truthIDs;
-	  // 	std::vector<Int_t> truthBarcodes;
-	  // 	std::vector<Double_t> truthEnergies; //note: this is the amount of energy DEPOSITED in the neutral FE by the truth particle (not the energy of the particle itself)
-	  // 	ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
-	  // 	for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
-	  // 	  //loop over truth particles to find corresponding barcode
-	  // 	  bool foundMatchingBarcode = false;
-	  // 	  for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
-	  // 	    if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
-	  // 	    foundMatchingBarcode = true;
-	  // 	    truthIDs.push_back( truthParticle->pdgId() );
-	  // 	    truthBarcodes.push_back( truthParticle->barcode() );
-	  // 	    truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
-
-	  // 	    ANA_MSG_VERBOSE( "[electron-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
-	  // 	    break; //found matching truth particle, move onto the next calpfo contribution
-	  // 	  }
-	  // 	  if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
-	  // 	} //end loop over calpfo vector
-	  // 	calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
-	  // 	calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
-	  // 	calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
-	  //     }
-
-	  //   } // end loop over linked neutral Global FEs
-	  // }
+	  	    ANA_MSG_VERBOSE( "[electron-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
+	  	    break;
+	  	  }
+	  	  if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	  	} //end loop over calpfo vector
+	  	calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
+	  	calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
+	  	calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+	      }
+	    } //end loop over linked neutral Global FEs
+	  }
 	}
-      }
+      } //end loop over linked charged FEs
 
       countElectron++;
 
@@ -1436,9 +1290,6 @@ EL::StatusCode compareFELinks :: execute ()
       m_calpfo_NLeadingTruthParticlePdgId.push_back( calpfo_NLeadingTruthParticlePdgId );
       m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
       m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
-
-      // // stop once we have 2 electrons
-      // if( m_pt.size() == 2 ) break;
     }
 
     // fill tree
@@ -1459,29 +1310,24 @@ EL::StatusCode compareFELinks :: execute ()
     m_calpfo_NLeadingTruthParticleEnergy.clear();
   }
 
-  /// PHOTONS
+  // PHOTONS
   if( !m_photonContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_photonTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
     const xAOD::PhotonContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_photonContainerName ) );
-
-    std::vector<std::vector<ElementLink<xAOD::FlowElementContainer>>> photonNFELinks; //EACH photon will have a VECTOR of FELinks
 
     Int_t countPhoton = 0;
     for( const xAOD::Photon *photon : *inContainer ) {
       // accessor for checking whether photon passed identification selections
       SG::AuxElement::ConstAccessor< char > passSel("passSel");
 
-      // prepare vector to store PFO indices and energies
+      // vector to store FE indices and energies for current photon
       std::vector<int> neutralPFOindex;
       std::vector<double> neutralPFOenergy;
 
       SG::ReadDecorHandle<xAOD::PhotonContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> neutralFEReadDecorHandle(m_photonNeutralFEReadDecorKey);
-      photonNFELinks.push_back( neutralFEReadDecorHandle(*photon) );
+      std::vector<ElementLink<xAOD::FlowElementContainer>> photonNFELinks = neutralFEReadDecorHandle(*photon);
 
-      // printouts for verbose message level
+      // loop over each neutral FE linked to photon
       for( ElementLink<xAOD::FlowElementContainer> feLink : photonNFELinks.at(countPhoton) ) {
 	if( feLink.isValid() ) {
 	  const xAOD::FlowElement *photonNFE = *feLink;
@@ -1500,9 +1346,6 @@ EL::StatusCode compareFELinks :: execute ()
       m_passSel.push_back( passSel.isAvailable(*photon) ? passSel(*photon) : -1 );
       m_neutralPFOindex.push_back( neutralPFOindex );
       m_neutralPFOenergy.push_back( neutralPFOenergy );
-
-      // // stop after 1 photon
-      // if( m_pt.size() == 1 ) break;
     }
 
     // fill tree
@@ -1518,54 +1361,141 @@ EL::StatusCode compareFELinks :: execute ()
     m_neutralPFOenergy.clear();
   }
 
-  /// MUONS
+  // MUONS
   if( !m_muonContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_muonTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
+    const xAOD::TruthParticleContainer *truthParticles = nullptr;
     const xAOD::MuonContainer *inContainer = nullptr;
+    ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
     ANA_CHECK( evtStore()->retrieve( inContainer, m_muonContainerName ) );
-
-    std::vector<std::vector<ElementLink<xAOD::FlowElementContainer>>> muonNFELinks; //EACH muon will have a VECTOR of FELinks
-    std::vector<std::vector<ElementLink<xAOD::FlowElementContainer>>> muonCFELinks;
 
     Int_t countMuon = 0;
     for( const xAOD::Muon *muon : *inContainer ) {
-      // accessor for checking whether muon passed identification selections
+      // identification selecton check
       SG::AuxElement::ConstAccessor< char > passSel("passSel");
 
-      // prepare vectors to store PFO indices and energies
+      // vectors to store FE indices and energies for current muon
       std::vector<int> neutralPFOindex;
       std::vector<int> chargedPFOindex;
       std::vector<double> neutralPFOenergy;
       std::vector<double> chargedPFOenergy;
 
-      // links to neutral FE
+      // neutral FE links: muon->JetETMissNeutral and JetETMissNeutral->GlobalNeutral
       SG::ReadDecorHandle<xAOD::MuonContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> neutralFEReadDecorHandle(m_muonNeutralFEReadDecorKey);
-      muonNFELinks.push_back( neutralFEReadDecorHandle(*muon) );
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> neutralGlobalFEReadDecorHandle(m_neutralOriginalToGlobalFEReadDecorKey);
+      std::vector<ElementLink<xAOD::FlowElementContainer>> muonNFELinks = neutralFEReadDecorHandle(*muon); //this corresponds to FE in the JetETMiss container
 
-      // links to charged FE
+      // charged FE links: muon->JetETMissCharged, JetETMissCharged->GlobalCharged, and JetETMissCharged->GlobalNeutral (for cFEs that create new cFEs in Global)
       SG::ReadDecorHandle<xAOD::MuonContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> chargedFEReadDecorHandle(m_muonChargedFEReadDecorKey);
-      muonCFELinks.push_back( chargedFEReadDecorHandle(*muon) );
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, ElementLink<xAOD::FlowElementContainer>> chargedGlobalFEReadDecorHandle(m_chargedOriginalToGlobalFEReadDecorKey);
+      SG::ReadDecorHandle<xAOD::FlowElementContainer, std::vector<ElementLink<xAOD::FlowElementContainer>>> chargedOriginalToNeutralGlobalFEReadDecorHandle(m_chargedOriginalToNeutralGlobalFEReadDecorKey);
+      std::vector<ElementLink<xAOD::FlowElementContainer>> muonCFELinks = chargedFEReadDecorHandle(*muon); //this corresponds to FE in the JetETMiss container
 
-      // printouts for verbose message level
-      for( ElementLink<xAOD::FlowElementContainer> feLink : muonNFELinks.at(countMuon) ) {
-	if( feLink.isValid() ) {
-	  const xAOD::FlowElement *muonNFE = *feLink;
-	  neutralPFOindex.push_back(muonNFE->index());
-	  neutralPFOenergy.push_back(muonNFE->e() * m_conversionFactor);
-	  ANA_MSG_VERBOSE( "Muon number " << countMuon << ", neutral FE link has index: " << muonNFE->index() );
-	}
-      }
+      // vectors to store calibration hit information for each neutral FE
+      // by default, (up to) the three largest contributions is saved to the calpfo vector
+      std::vector<std::vector<int>> calpfo_NLeadingTruthParticlePdgId;
+      std::vector<std::vector<int>> calpfo_NLeadingTruthParticleBarcode;
+      std::vector<std::vector<double>> calpfo_NLeadingTruthParticleEnergy;
 
-      for( ElementLink<xAOD::FlowElementContainer> feLink : muonCFELinks.at(countMuon) ) {
+      // loop over each neutral FE linked to the muon
+      for( ElementLink<xAOD::FlowElementContainer> feLink : muonNFELinks ) {
 	if( feLink.isValid() ) {
-	  const xAOD::FlowElement *muonCFE = *feLink;
-	  chargedPFOindex.push_back(muonCFE->index());
-	  chargedPFOenergy.push_back(muonCFE->e() * m_conversionFactor);
-	  ANA_MSG_VERBOSE( "Muon number " << countMuon << ", charged FE link has index: " << muonCFE->index() );
+	  // this points to neutral FE in the JetETMiss container
+	  const xAOD::FlowElement *muonNeutralOriginalFlowElement = *feLink;
+
+	  // get corresponding FE in the Global container
+	  ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = neutralGlobalFEReadDecorHandle(*muonNeutralOriginalFlowElement);
+	  if( !feLinkToGlobal.isValid() ) ANA_MSG_INFO( "FE Link to neutral Global is NOT valid... this message should NEVER get printed." );
+	  else ANA_MSG_VERBOSE( "FE Link to neutral Global is valid. As it should be (always)." );
+
+	  const xAOD::FlowElement *muonNeutralGlobalFlowElement = *feLinkToGlobal;
+	  neutralPFOindex.push_back(muonNeutralGlobalFlowElement->index());
+	  neutralPFOenergy.push_back(muonNeutralGlobalFlowElement->e() * m_conversionFactor);
+	  ANA_MSG_VERBOSE( "Muon number " << countMuon << ", neutral FE link has index: " << muonNeutralGlobalFlowElement->index() );
+
+	  // save calibration hit information
+	  ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this muon..." );
+	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
+	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*muonNeutralGlobalFlowElement);
+
+	  std::vector<Int_t> truthIDs;
+	  std::vector<Int_t> truthBarcodes;
+	  std::vector<Double_t> truthEnergies;
+	  ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
+	  for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
+	    bool foundMatchingBarcode = false;
+	    for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
+	      if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
+	      foundMatchingBarcode = true;
+	      truthIDs.push_back( truthParticle->pdgId() );
+	      truthBarcodes.push_back( truthParticle->barcode() );
+	      truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
+
+	      ANA_MSG_VERBOSE( "[muon-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
+	      break; //found matching truth particle, move onto the next calpfo contribution
+	    }
+	    if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	  } //end loop over calpfo vector
+	  calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
+	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
+	  calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
 	}
-      }
+      } //end loop over linked neutral FEs
+
+      // loop over each charged FE linked to the muon
+      for( ElementLink<xAOD::FlowElementContainer> feLink : muonCFELinks ) {
+	if( feLink.isValid() ) {
+	  // this points to charged FE in the JetETMiss container
+	  const xAOD::FlowElement *muonChargedOriginalFlowElement = *feLink;
+
+	  // get corresponding FE in the Global container
+	  ElementLink<xAOD::FlowElementContainer> feLinkToGlobal = chargedGlobalFEReadDecorHandle(*muonChargedOriginalFlowElement);
+	  if( feLinkToGlobal.isValid() ) {
+	    ANA_MSG_VERBOSE( "FE Link from charged JetETMiss to charged Global is valid." );
+	    const xAOD::FlowElement *muonChargedGlobalFlowElement = *feLinkToGlobal;
+	    chargedPFOindex.push_back(muonChargedGlobalFlowElement->index());
+	    chargedPFOenergy.push_back(muonChargedGlobalFlowElement->e() * m_conversionFactor);
+	    ANA_MSG_VERBOSE( "Muon number " << countMuon << ", charged FE link has index: " << muonChargedGlobalFlowElement->index() );
+	  } else {
+	    // if element link from charged JetETMiss to charged Global is NOT valid, check if there are linked from chared JetETMiss to NEUTRAL Global instead
+	    std::vector<ElementLink<xAOD::FlowElementContainer>> feLinkChargedOriginalToNeutralGlobal = chargedOriginalToNeutralGlobalFEReadDecorHandle(*muonChargedOriginalFlowElement);
+	    for( ElementLink<xAOD::FlowElementContainer> feLinkToNeutralGlobal : feLinkChargedOriginalToNeutralGlobal ) {
+	      if( feLinkToNeutralGlobal.isValid() ) {
+	  	ANA_MSG_VERBOSE( "FE Link to charged Global is NOT valid... link points to FEs in neutral Global instead." );
+	  	const xAOD::FlowElement *muonNeutralGlobalFlowElement = *feLinkToNeutralGlobal;
+	  	neutralPFOindex.push_back(muonNeutralGlobalFlowElement->index());
+	  	neutralPFOenergy.push_back(muonNeutralGlobalFlowElement->e() * m_conversionFactor);
+
+	  	// save calibration hit information
+	  	ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this muon..." );
+	  	SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
+	  	std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*muonNeutralGlobalFlowElement);
+
+	  	std::vector<Int_t> truthIDs;
+	  	std::vector<Int_t> truthBarcodes;
+	  	std::vector<Double_t> truthEnergies;
+	  	ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
+	  	for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
+	  	  bool foundMatchingBarcode = false;
+	  	  for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
+	  	    if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
+	  	    foundMatchingBarcode = true;
+	  	    truthIDs.push_back( truthParticle->pdgId() );
+	  	    truthBarcodes.push_back( truthParticle->barcode() );
+	  	    truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
+
+	  	    ANA_MSG_VERBOSE( "[muon-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
+	  	    break;
+	  	  }
+	  	  if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	  	} //end loop over calpfo vector
+	  	calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
+	  	calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
+	  	calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+	      }
+	    } //end loop over linked neutral Global FEs
+	  }
+	}
+      } //end loop over linked charged FEs
 
       countMuon++;
 
@@ -1578,9 +1508,9 @@ EL::StatusCode compareFELinks :: execute ()
       m_chargedPFOindex.push_back( chargedPFOindex );
       m_neutralPFOenergy.push_back( neutralPFOenergy );
       m_chargedPFOenergy.push_back( chargedPFOenergy );
-
-      // // stop once we have 2 muons
-      // if( m_pt.size() == 2 ) break;
+      m_calpfo_NLeadingTruthParticlePdgId.push_back( calpfo_NLeadingTruthParticlePdgId );
+      m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
+      m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
     }
 
     // fill tree
@@ -1596,22 +1526,21 @@ EL::StatusCode compareFELinks :: execute ()
     m_chargedPFOindex.clear();
     m_neutralPFOenergy.clear();
     m_chargedPFOenergy.clear();
+    m_calpfo_NLeadingTruthParticlePdgId.clear();
+    m_calpfo_NLeadingTruthParticleBarcode.clear();
+    m_calpfo_NLeadingTruthParticleEnergy.clear();
   }
 
-  /// TRUTH PARTICLES for Z+jets samples; expect 2 relevant truth electrons / muons
+  // TRUTH PARTICLES (for Z+jets samples; expect 2 truth electrons/muons)
+  // side note: for ttbar topology, we already saved truth particles during the preselection step
   if( !m_truthContainerName.empty() && (m_isZee || m_isZmumu) ) {
-    // set PDG ID of truth lepton
     if( m_isZee ) m_truthPDGID = 11;
     else m_truthPDGID = 13;
-
-    // tell the tree to go to the file
-    m_truthTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
 
     const xAOD::TruthParticleContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_truthContainerName ) );
 
-    // need to be careful: these aren't sorted by highest pT first
-    // make sure we store leading particle as the 0th element in the vector
+    // save pT-ordered truth particles
     int truthCount = 0;
     double leadingTruthPt = 0;
     double leadingTruthEta = 0;
@@ -1626,11 +1555,9 @@ EL::StatusCode compareFELinks :: execute ()
     int subleadingTruthID = 0;
     int subleadingTruthBarcode = 0;
     for( const xAOD::TruthParticle* truth : *inContainer ) {
-      // skip if it's not the particle we're looking for
       if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
   	truthCount++;
-
   	if( truthCount == 1 ) {
   	  leadingTruthPt = truth->pt() * m_conversionFactor;
   	  leadingTruthEta = truth->eta();
@@ -1693,11 +1620,8 @@ EL::StatusCode compareFELinks :: execute ()
     m_truthBarcode.clear();
   }
 
-  /// TRUTH PARTICLES for SinglePhoton samples; expect 1 truth photon per event
+  // TRUTH PARTICLES (for SinglePhoton samples; expect 1 truth photon)
   if( !m_truthContainerName.empty() && m_isSinglePhoton ) {
-    // tell the tree to go to the file
-    m_truthTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
     const xAOD::TruthParticleContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_truthContainerName ) );
 
@@ -1708,7 +1632,6 @@ EL::StatusCode compareFELinks :: execute ()
     double leadingTruthE = 0;
     int leadingTruthID = 0;
     for( const xAOD::TruthParticle* truth : *inContainer ) {
-      // skip if it's not the particle we're looking for
       if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
       leadingTruthPt = truth->pt() * m_conversionFactor;
@@ -1738,11 +1661,8 @@ EL::StatusCode compareFELinks :: execute ()
     m_truthID.clear();
   }
 
-  /// Truth jets
+  // TRUTH JETS
   if( !m_truthJetContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_truthJetTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
     const xAOD::JetContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_truthJetContainerName ) );
 
@@ -1752,18 +1672,12 @@ EL::StatusCode compareFELinks :: execute ()
       m_phi.push_back( jet->phi() );
       m_e.push_back( jet->e() * m_conversionFactor );
 
-      // check if there are any truth jets with pT > 7 GeV within DeltaR < 1 of the current truth jet
+      // isolation check: see if there are any other truth jets with pT > 7 GeV within DeltaR < 1
       bool foundClosebyJet = false;
       for( const xAOD::Jet *jet2 : *inContainer ) {
-	// obviously, don't compare jet with itself
-	if( jet == jet2 )
+	if( jet2 == jet || jet2->pt() < 7000 )
 	  continue;
 
-	// only check against jets with pT > 7 GeV
-	if( jet2->pt() < 7000 )
-	  continue;
-
-	// now check deltaR between jets
 	double jetPhiDiff = jet->phi() - jet2->phi();
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
@@ -1790,11 +1704,8 @@ EL::StatusCode compareFELinks :: execute ()
     m_isIsoJetDR1p0.clear();
   }
 
-  /// Truth WZ jets
+  // TRUTH WZ JETS
   if( !m_truthWZJetContainerName.empty() ) {
-    // tell the tree to go to the file
-    m_truthWZJetTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
-
     const xAOD::JetContainer *inContainer = nullptr;
     ANA_CHECK( evtStore()->retrieve( inContainer, m_truthWZJetContainerName ) );
 
@@ -1804,18 +1715,12 @@ EL::StatusCode compareFELinks :: execute ()
       m_phi.push_back( jet->phi() );
       m_e.push_back( jet->e() * m_conversionFactor );
 
-      // check if there are any truth jets with pT > 7 GeV within DeltaR < 1 of the current truth jet
+      // isolation check: see if there are any other truth jets with pT > 7 GeV within DeltaR < 1
       bool foundClosebyJet = false;
       for( const xAOD::Jet *jet2 : *inContainer ) {
-	// obviously, don't compare jet with itself
-	if( jet == jet2 )
+	if( jet2 == jet || jet2->pt() < 7000 )
 	  continue;
 
-	// only check against jets with pT > 7 GeV
-	if( jet2->pt() < 7000 )
-	  continue;
-
-	// now check deltaR between jets
 	double jetPhiDiff = jet->phi() - jet2->phi();
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
