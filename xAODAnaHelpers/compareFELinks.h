@@ -84,6 +84,9 @@ public:
   double m_deltaRcutoff = 10000.;
   double m_ptDiffCutoff = 10000.;
 
+  // toggle TRUE makes it so only truth-matched objects are saved
+  bool m_doTruthObjectMatch = false;
+
   // convert pT and energy to GeV or leave it in the default MeV
   bool m_convertMeVToGeV = true;
 
@@ -179,8 +182,16 @@ private:
   SG::ReadHandleKey<xAOD::FlowElementContainer> m_inCHSGChargedFEKey;
   SG::ReadHandleKey<xAOD::FlowElementContainer> m_inCHSGNeutralFEKey;
 
-  // jet container key
+  // container keys
   SG::ReadHandleKey<xAOD::JetContainer> m_jetContKey;
+  SG::ReadHandleKey<xAOD::JetContainer> m_jetTopoContKey;
+  SG::ReadHandleKey<xAOD::JetContainer> m_jetTruthContKey;
+  SG::ReadHandleKey<xAOD::JetContainer> m_jetTruthWZContKey;
+  SG::ReadHandleKey<xAOD::ElectronContainer> m_eleContKey;
+  SG::ReadHandleKey<xAOD::PhotonContainer> m_phoContKey;
+  SG::ReadHandleKey<xAOD::MuonContainer> m_muContKey;
+  SG::ReadHandleKey<xAOD::TruthParticleContainer> m_truthContKey;
+  SG::ReadHandleKey<xAOD::TruthParticleContainer> m_truthParticlesContKey;
 
 public:
 

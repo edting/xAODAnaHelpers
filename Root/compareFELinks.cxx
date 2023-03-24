@@ -431,11 +431,49 @@ EL::StatusCode compareFELinks :: initialize ()
   ANA_CHECK(m_muonNeutralFEReadDecorKey.initialize());
   ANA_CHECK(m_muonChargedFEReadDecorKey.initialize());
 
-  // initialise jet container
+  // initialise containers
   if( !m_pflowJetContainerName.empty() ) {
     ANA_CHECK(m_jetContKey.assign(m_pflowJetContainerName));
     ANA_CHECK(m_jetContKey.initialize());
   }
+
+  if( !m_topoJetContainerName.empty() ) {
+    ANA_CHECK(m_jetTopoContKey.assign(m_topoJetContainerName));
+    ANA_CHECK(m_jetTopoContKey.initialize());
+  }
+
+  if( !m_truthJetContainerName.empty() ) {
+    ANA_CHECK(m_jetTruthContKey.assign(m_truthJetContainerName));
+    ANA_CHECK(m_jetTruthContKey.initialize());
+  }
+
+  if( !m_truthWZJetContainerName.empty() ) {
+    ANA_CHECK(m_jetTruthWZContKey.assign(m_truthWZJetContainerName));
+    ANA_CHECK(m_jetTruthWZContKey.initialize());
+  }
+
+  if( !m_truthContainerName.empty() ) {
+    ANA_CHECK(m_truthContKey.assign(m_truthContainerName));
+    ANA_CHECK(m_truthContKey.initialize());
+  }
+
+  if( !m_electronContainerName.empty() ) {
+    ANA_CHECK(m_eleContKey.assign(m_electronContainerName));
+    ANA_CHECK(m_eleContKey.initialize());
+  }
+
+  if( !m_photonContainerName.empty() ) {
+    ANA_CHECK(m_phoContKey.assign(m_photonContainerName));
+    ANA_CHECK(m_phoContKey.initialize());
+  }
+
+  if( !m_muonContainerName.empty() ) {
+    ANA_CHECK(m_muContKey.assign(m_muonContainerName));
+    ANA_CHECK(m_muContKey.initialize());
+  }
+
+  ANA_CHECK(m_truthParticlesContKey.assign("TruthParticles"));
+  ANA_CHECK(m_truthParticlesContKey.initialize());
 
   // initialise jet constituent container(s)
   std::string inputContainerBaseGlobal = "Global";
@@ -473,7 +511,7 @@ EL::StatusCode compareFELinks :: execute ()
    *  If a truth object container is also specified:
    *   - check that reconstructed and truth electrons/muons/photons are deltaR and pT-matched
    *
-   *  For ttbar events: check for at least 1 truth lepton, then look for matching reco lepton
+   *  For ttbar events: check for at least 1 truth lepton(s), then look for matching reco lepton(s)
    *
    *  For dijet events: save all electrons / muons / photons
    *
@@ -488,8 +526,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // PRESELECTION FOR ZEE EVENTS
   if( m_isZee ) {
-    const xAOD::ElectronContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_electronContainerName ) );
+    SG::ReadHandle<xAOD::ElectronContainer> inContainer(m_eleContKey);
 
     // check that event contains at least 2 electrons, otherwise skip event
     // pt, eta and phi of first two electrons will be used for truth matching (if truth container is available)
@@ -530,8 +567,7 @@ EL::StatusCode compareFELinks :: execute ()
     if( electronCount < 2 ) return EL::StatusCode::SUCCESS;
 
     if( !m_truthContainerName.empty() ) {
-      const xAOD::TruthParticleContainer *truthContainer = nullptr;
-      ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
+      SG::ReadHandle<xAOD::TruthParticleContainer> truthContainer(m_truthContKey);
 
       m_truthPDGID = 11; //PDG ID of electron
       int truthCount = 0;
@@ -593,8 +629,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // PRESELECTION FOR SINGLE PHOTON EVENTS
   if( m_isSinglePhoton ) {
-    const xAOD::PhotonContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_photonContainerName ) );
+    SG::ReadHandle<xAOD::PhotonContainer> inContainer(m_phoContKey);
 
     // check that event contains at least 1 photon, otherwise skip event
     // pt, eta and phi of first photon will be used for truth matching (if truth container is available)
@@ -617,8 +652,7 @@ EL::StatusCode compareFELinks :: execute ()
     if( photonCount < 1 ) return EL::StatusCode::SUCCESS;
 
     if( !m_truthContainerName.empty() ) {
-      const xAOD::TruthParticleContainer *truthContainer = nullptr;
-      ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
+      SG::ReadHandle<xAOD::TruthParticleContainer> truthContainer(m_truthContKey);
 
       m_truthPDGID = 22; //PDG ID of photon
       int truthCount = 0;
@@ -652,8 +686,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // PRESELECTION FOR ZMUMU EVENTS
   if( m_isZmumu ) {
-    const xAOD::MuonContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_muonContainerName ) );
+    SG::ReadHandle<xAOD::MuonContainer> inContainer(m_muContKey);
 
     // check that event contains at least 2 muons, otherwise skip event
     // pt, eta and phi of first two muons will be used for truth matching below (if truth container is available)
@@ -694,8 +727,7 @@ EL::StatusCode compareFELinks :: execute ()
     if( muonCount < 2 ) return EL::StatusCode::SUCCESS;
 
     if( !m_truthContainerName.empty() ) {
-      const xAOD::TruthParticleContainer *truthContainer = nullptr;
-      ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
+      SG::ReadHandle<xAOD::TruthParticleContainer> truthContainer(m_truthContKey);
 
       m_truthPDGID = 13; //PDG ID of muon
       int truthCount = 0;
@@ -756,9 +788,10 @@ EL::StatusCode compareFELinks :: execute ()
   }
 
   // PRESELECTION FOR TTBAR EVENTS
+  int numElectronsExpected = 0;
+  int numMuonsExpected = 0;
   if( m_isttbar ) {
-    const xAOD::TruthParticleContainer *truthContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( truthContainer, m_truthContainerName ) );
+    SG::ReadHandle<xAOD::TruthParticleContainer> truthContainer(m_truthContKey);
 
     // check for at least one truth lepton from top decay in the event
     bool foundTruthLepton = false;
@@ -767,6 +800,7 @@ EL::StatusCode compareFELinks :: execute ()
     std::vector<float> truthLeptonEta;
     std::vector<float> truthLeptonPhi;
     std::vector<float> truthLeptonE;
+
     for( const xAOD::TruthParticle *truth : *truthContainer ) {
       // skip any particles that aren't electrons or muons
       if( std::abs( truth->pdgId() ) != 11 && std::abs( truth->pdgId() ) != 13 ) continue;
@@ -784,8 +818,6 @@ EL::StatusCode compareFELinks :: execute ()
     if( !foundTruthLepton ) return EL::StatusCode::SUCCESS;
 
     // if a lepton(s) is found, check that corresponding reconstructed containers have at least the same number of leptons
-    int numElectronsExpected = 0;
-    int numMuonsExpected = 0;
     int numElectronsFound = 0;
     int numMuonsFound = 0;
     std::vector<float> recoLeptonPt;
@@ -797,8 +829,7 @@ EL::StatusCode compareFELinks :: execute ()
 	numElectronsExpected++;
 
 	// fetch the corresponding electron from the reconstructed electron container
-	const xAOD::ElectronContainer *electrons = nullptr;
-	ANA_CHECK( evtStore()->retrieve( electrons, m_electronContainerName ) );
+	SG::ReadHandle<xAOD::ElectronContainer> electrons(m_eleContKey);
 
 	int electronCount = 0;
 	for( const xAOD::Electron *electron : *electrons ) {
@@ -817,8 +848,7 @@ EL::StatusCode compareFELinks :: execute ()
 	numMuonsExpected++;
 
 	// fetch the corresponding muon from the reconstructed muon container
-	const xAOD::MuonContainer *muons = nullptr;
-	ANA_CHECK( evtStore()->retrieve( muons, m_muonContainerName ) );
+	SG::ReadHandle<xAOD::MuonContainer> muons(m_muContKey);
 
 	int muonCount = 0;
 	for( const xAOD::Muon *muon : *muons ) {
@@ -844,13 +874,18 @@ EL::StatusCode compareFELinks :: execute ()
       const float etaDiff = truthLeptonEta.at( lepton ) - recoLeptonEta.at( lepton );
       const float phiDiff = truthLeptonPhi.at( lepton ) - recoLeptonPhi.at( lepton );
       const float truthRecoDeltaR = sqrt( etaDiff*etaDiff + phiDiff*phiDiff );
-      const float truthRecoPtDiffRatio = std::abs( truthLeptonPt.at( lepton ) - recoLeptonPt.at( lepton ) ) / (truthLeptonPt.at( lepton ) + recoLeptonPt.at( lepton ) );
+      const float truthRecoPtDiffRatio = std::abs( truthLeptonPt.at( lepton ) - recoLeptonPt.at( lepton ) ) / ( truthLeptonPt.at( lepton ) + recoLeptonPt.at( lepton ) );
 
       if( truthRecoDeltaR > m_deltaRcutoff || truthRecoPtDiffRatio > m_ptDiffCutoff )
 	return EL::StatusCode::SUCCESS;
+      else {
+	ANA_MSG_VERBOSE( "Match found! Reco vs truth lepton:" );
+	ANA_MSG_VERBOSE( "\tLepton number " << lepton << ": reco pT = " << recoLeptonPt.at( lepton ) << " GeV, eta = " << recoLeptonEta.at( lepton ) << " and phi = " << recoLeptonPhi.at( lepton ) );
+	ANA_MSG_VERBOSE( "\tLepton number " << lepton << ": truth pT = " << truthLeptonPt.at( lepton ) << " GeV, eta = " << truthLeptonEta.at( lepton ) << " and phi = " << truthLeptonPhi.at( lepton ) );
+      }
     }
 
-    // pre-emptively fill the truth lepton tree in the output ntuple since we already did the work to find them above
+    // fill the truth lepton tree in the output ntuple now, since we already did the work to find them
     m_truthTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
     for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) {
       m_truthID.push_back( leptonID.at( lepton ) );
@@ -918,11 +953,7 @@ EL::StatusCode compareFELinks :: execute ()
     SG::ReadHandle<xAOD::FlowElementContainer> inCHSGNeutralFEHandle = makeHandle(m_inCHSGNeutralFEKey);
     SG::ReadHandle<xAOD::FlowElementContainer> inCHSGChargedFEHandle = makeHandle(m_inCHSGChargedFEKey);
     SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetContKey);
-    SG::ReadHandle<xAOD::TruthParticleContainer> truthParticles("TruthParticles");
-
-    //BLAH the above seems to work - after double checking that it does, delete this block (and maybe change subsequent container fetches too)
-    // const xAOD::TruthParticleContainer *truthParticles = nullptr;
-    // ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
+    SG::ReadHandle<xAOD::TruthParticleContainer> truthParticles(m_truthParticlesContKey);
 
     // placeholder if no scale factor information
     static const std::vector<float> junk(1,-999);
@@ -986,7 +1017,7 @@ EL::StatusCode compareFELinks :: execute ()
 	      ANA_MSG_VERBOSE( "[neutral jet constituent]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
 	      break;
 	    }
-	    if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	    if( !foundMatchingBarcode ) ANA_MSG_VERBOSE( "Huh..? Didn't find any matching barcodes... This is unexpected." );
 	  } //end loop over calpfo vector
 	  calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
 	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
@@ -1085,8 +1116,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // EMTOPO JETS
   if( !m_topoJetContainerName.empty() ) {
-    const xAOD::JetContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_topoJetContainerName ) );
+    SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetTopoContKey);
 
     // placeholder if no scale factor information
     static const std::vector<float> junk(1,-999);
@@ -1137,10 +1167,8 @@ EL::StatusCode compareFELinks :: execute ()
 
   /// ELECTRONS
   if( !m_electronContainerName.empty() ) {
-    const xAOD::TruthParticleContainer *truthParticles = nullptr;
-    const xAOD::ElectronContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( truthParticles, "TruthParticles" ) );
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_electronContainerName ) );
+    SG::ReadHandle<xAOD::ElectronContainer> inContainer(m_eleContKey);
+    SG::ReadHandle<xAOD::TruthParticleContainer> truthParticles(m_truthParticlesContKey);
 
     Int_t countElectron = 0;
     for( const xAOD::Electron *electron : *inContainer ) {
@@ -1197,7 +1225,7 @@ EL::StatusCode compareFELinks :: execute ()
 	      ANA_MSG_VERBOSE( "[electron-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
 	      break;
 	    }
-	    if( !foundMatchingBarcode ) ANA_MSG_INFO( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	    if( !foundMatchingBarcode ) ANA_MSG_VERBOSE( "Huh..? Didn't find any matching barcodes... This is unexpected." );
 	  } //end loop over calpfo vector
 	  calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
 	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
@@ -1217,8 +1245,6 @@ EL::StatusCode compareFELinks :: execute ()
 	}
       } //end loop over linked charged FEs
 
-      countElectron++;
-
       m_pt.push_back( electron->pt() * m_conversionFactor );
       m_eta.push_back( electron->eta() );
       m_phi.push_back( electron->phi() );
@@ -1231,6 +1257,11 @@ EL::StatusCode compareFELinks :: execute ()
       m_calpfo_NLeadingTruthParticlePdgId.push_back( calpfo_NLeadingTruthParticlePdgId );
       m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
       m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
+
+      countElectron++;
+      if( m_doTruthObjectMatch && ( (m_isZee && countElectron == 2) || (m_isttbar && countElectron == numElectronsExpected) ) ) {
+	break;
+      }
     } //end loop over electrons
 
     // fill tree
@@ -1253,8 +1284,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   /// PHOTONS
   if( !m_photonContainerName.empty() ) {
-    const xAOD::PhotonContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_photonContainerName ) );
+    SG::ReadHandle<xAOD::PhotonContainer> inContainer(m_phoContKey);
 
     Int_t countPhoton = 0;
     for( const xAOD::Photon *photon : *inContainer ) {
@@ -1279,8 +1309,6 @@ EL::StatusCode compareFELinks :: execute ()
 	}
       }
 
-      countPhoton++;
-
       m_pt.push_back( photon->pt() * m_conversionFactor );
       m_eta.push_back( photon->eta() );
       m_phi.push_back( photon->phi() );
@@ -1288,7 +1316,12 @@ EL::StatusCode compareFELinks :: execute ()
       m_passSel.push_back( passSel.isAvailable(*photon) ? passSel(*photon) : -1 );
       m_neutralPFOindex.push_back( neutralPFOindex );
       m_neutralPFOenergy.push_back( neutralPFOenergy );
-    }
+
+      countPhoton++;
+      if( m_doTruthObjectMatch && m_isSinglePhoton && countPhoton == 1 ) {
+	break;
+      }
+    } //end loop over photons
 
     // fill tree
     m_photonTree->Fill();
@@ -1305,8 +1338,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   /// MUONS
   if( !m_muonContainerName.empty() ) {
-    const xAOD::MuonContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_muonContainerName ) );
+    SG::ReadHandle<xAOD::MuonContainer> inContainer(m_muContKey);
 
     Int_t countMuon = 0;
     for( const xAOD::Muon *muon : *inContainer ) {
@@ -1345,8 +1377,6 @@ EL::StatusCode compareFELinks :: execute ()
 	}
       }
 
-      countMuon++;
-
       m_pt.push_back( muon->pt() * m_conversionFactor );
       m_eta.push_back( muon->eta() );
       m_phi.push_back( muon->phi() );
@@ -1356,6 +1386,11 @@ EL::StatusCode compareFELinks :: execute ()
       m_chargedPFOindex.push_back( chargedPFOindex );
       m_neutralPFOenergy.push_back( neutralPFOenergy );
       m_chargedPFOenergy.push_back( chargedPFOenergy );
+
+      countMuon++;
+      if( m_doTruthObjectMatch && ( (m_isZmumu && countMuon == 2) || (m_isttbar && countMuon == numMuonsExpected) ) ) {
+	break;
+      }
     }
 
     // fill tree
@@ -1379,8 +1414,7 @@ EL::StatusCode compareFELinks :: execute ()
     if( m_isZee ) m_truthPDGID = 11;
     else m_truthPDGID = 13;
 
-    const xAOD::TruthParticleContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_truthContainerName ) );
+    SG::ReadHandle<xAOD::TruthParticleContainer> inContainer(m_truthContKey);
 
     // save pT-ordered truth particles
     int truthCount = 0;
@@ -1464,8 +1498,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // TRUTH PARTICLES (for SinglePhoton samples; expect 1 truth photon)
   if( !m_truthContainerName.empty() && m_isSinglePhoton ) {
-    const xAOD::TruthParticleContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_truthContainerName ) );
+    SG::ReadHandle<xAOD::TruthParticleContainer> inContainer(m_truthContKey);
 
     m_truthPDGID = 22;
     double leadingTruthPt = 0;
@@ -1505,8 +1538,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // TRUTH JETS
   if( !m_truthJetContainerName.empty() ) {
-    const xAOD::JetContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_truthJetContainerName ) );
+    SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetTruthContKey);
 
     for( const xAOD::Jet *jet : *inContainer ) {
       m_pt.push_back( jet->pt() * m_conversionFactor );
@@ -1549,8 +1581,7 @@ EL::StatusCode compareFELinks :: execute ()
 
   // TRUTH WZ JETS
   if( !m_truthWZJetContainerName.empty() ) {
-    const xAOD::JetContainer *inContainer = nullptr;
-    ANA_CHECK( evtStore()->retrieve( inContainer, m_truthWZJetContainerName ) );
+    SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetTruthWZContKey);
 
     for( const xAOD::Jet *jet : *inContainer ) {
       m_pt.push_back( jet->pt() * m_conversionFactor );
