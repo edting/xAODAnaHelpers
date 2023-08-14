@@ -802,6 +802,7 @@ EL::StatusCode compareFELinks :: execute ()
     // check for at least one truth lepton from top decay in the event
     bool foundTruthLepton = false;
     std::vector<int> leptonID;
+    std::vector<int> truthLeptonBarcode;
     std::vector<float> truthLeptonPt;
     std::vector<float> truthLeptonEta;
     std::vector<float> truthLeptonPhi;
@@ -813,6 +814,7 @@ EL::StatusCode compareFELinks :: execute ()
 
       foundTruthLepton = true;
       leptonID.push_back( truth->pdgId() );
+      truthLeptonBarcode->push_back( truth->barcode() );
       truthLeptonPt.push_back( truth->pt() * m_conversionFactor );
       truthLeptonEta.push_back( truth->eta() );
       truthLeptonPhi.push_back( truth->phi() );
@@ -895,6 +897,7 @@ EL::StatusCode compareFELinks :: execute ()
     m_truthTree->SetDirectory( m_file->GetDirectory( m_outFileName.c_str() ) );
     for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) {
       m_truthID.push_back( leptonID.at( lepton ) );
+      m_truthBarcode.push_back( truthLeptonBarcode.at( lepton ) );
       m_pt.push_back( truthLeptonPt.at( lepton ) );
       m_eta.push_back( truthLeptonEta.at( lepton ) );
       m_phi.push_back( truthLeptonPhi.at( lepton ) );
@@ -1600,6 +1603,7 @@ EL::StatusCode compareFELinks :: execute ()
     double leadingTruthPhi = 0;
     double leadingTruthE = 0;
     int leadingTruthID = 0;
+    int leadingTruthBarcode = 0;
     for( const xAOD::TruthParticle* truth : *inContainer ) {
       if( std::abs( truth->pdgId() ) != m_truthPDGID ) continue;
 
@@ -1608,6 +1612,7 @@ EL::StatusCode compareFELinks :: execute ()
       leadingTruthPhi = truth->phi();
       leadingTruthE = truth->e() * m_conversionFactor;
       leadingTruthID = truth->pdgId();
+      leadingTruthBarcode = truth->barcode();
 
       // stop iterating once we have a photon
       break;
@@ -1618,6 +1623,7 @@ EL::StatusCode compareFELinks :: execute ()
     m_phi.push_back( leadingTruthPhi );
     m_e.push_back( leadingTruthE );
     m_truthID.push_back( leadingTruthID );
+    m_truthBarcode.push_back( leadingTruthBarcode );
 
     // fill tree
     m_truthTree->Fill();
@@ -1628,6 +1634,7 @@ EL::StatusCode compareFELinks :: execute ()
     m_phi.clear();
     m_e.clear();
     m_truthID.clear();
+    m_truthBarcode.clear();
   }
 
   // TRUTH JETS
