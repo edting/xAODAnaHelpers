@@ -54,6 +54,7 @@
 // ROOT includes:
 #include "TFile.h"
 #include "TSystem.h"
+#include "TVector2.h"
 
 // this is needed to distribute the algorithm to the workers
 ClassImp(compareFELinks)
@@ -613,12 +614,12 @@ EL::StatusCode compareFELinks :: execute ()
 
       // skip event if either of the reconstructed leading or subleading electrons don't match the truth
       const double leadingTruthRecoEtaDiff = leadingElectronEta - leadingTruthEta;
-      const double leadingTruthRecoPhiDiff = leadingElectronPhi - leadingTruthPhi;
+      const double leadingTruthRecoPhiDiff = TVector2::Phi_mpi_pi(leadingElectronPhi - leadingTruthPhi);
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
       const double leadingTruthRecoPtDiffRatio = std::abs( leadingElectronPt - leadingTruthPt ) / ( leadingElectronPt + leadingTruthPt );
 
       const double subleadingTruthRecoEtaDiff = subleadingElectronEta - subleadingTruthEta;
-      const double subleadingTruthRecoPhiDiff = subleadingElectronPhi - subleadingTruthPhi;
+      const double subleadingTruthRecoPhiDiff = TVector2::Phi_mpi_pi(subleadingElectronPhi - subleadingTruthPhi);
       const double subleadingTruthRecoDeltaR = sqrt( subleadingTruthRecoEtaDiff*subleadingTruthRecoEtaDiff + subleadingTruthRecoPhiDiff*subleadingTruthRecoPhiDiff );
       const double subleadingTruthRecoPtDiffRatio = std::abs( subleadingElectronPt - subleadingTruthPt ) / ( subleadingElectronPt + subleadingTruthPt );
 
@@ -679,7 +680,7 @@ EL::StatusCode compareFELinks :: execute ()
 
       // skip event if reconstructed and truth photon does not match
       const double leadingTruthRecoEtaDiff = leadingPhotonEta - leadingTruthEta;
-      const double leadingTruthRecoPhiDiff = leadingPhotonPhi - leadingTruthPhi;
+      const double leadingTruthRecoPhiDiff = TVector2::Phi_mpi_pi(leadingPhotonPhi - leadingTruthPhi);
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
       const double leadingTruthRecoPtDiffRatio = std::abs( leadingPhotonPt - leadingTruthPt ) / ( leadingPhotonPt + leadingTruthPt );
 
@@ -773,12 +774,12 @@ EL::StatusCode compareFELinks :: execute ()
 
       // skip event if either of the reconstructed leading or subleading muons don't match the truth
       const double leadingTruthRecoEtaDiff = leadingMuonEta - leadingTruthEta;
-      const double leadingTruthRecoPhiDiff = leadingMuonPhi - leadingTruthPhi;
+      const double leadingTruthRecoPhiDiff = TVector2::Phi_mpi_pi(leadingMuonPhi - leadingTruthPhi);
       const double leadingTruthRecoDeltaR = sqrt( leadingTruthRecoEtaDiff*leadingTruthRecoEtaDiff + leadingTruthRecoPhiDiff*leadingTruthRecoPhiDiff );
       const double leadingTruthRecoPtDiffRatio = std::abs( leadingMuonPt - leadingTruthPt ) / ( leadingMuonPt + leadingTruthPt );
 
       const double subleadingTruthRecoEtaDiff = subleadingMuonEta - subleadingTruthEta;
-      const double subleadingTruthRecoPhiDiff = subleadingMuonPhi - subleadingTruthPhi;
+      const double subleadingTruthRecoPhiDiff = TVector2::Phi_mpi_pi(subleadingMuonPhi - subleadingTruthPhi);
       const double subleadingTruthRecoDeltaR = sqrt( subleadingTruthRecoEtaDiff*subleadingTruthRecoEtaDiff + subleadingTruthRecoPhiDiff*subleadingTruthRecoPhiDiff );
       const double subleadingTruthRecoPtDiffRatio = std::abs( subleadingMuonPt - subleadingTruthPt ) / ( subleadingMuonPt + subleadingTruthPt );
 
@@ -877,7 +878,7 @@ EL::StatusCode compareFELinks :: execute ()
     // skip event if any of the reconstructed lepton(s) don't match the truth
     for( int lepton = 0; static_cast<std::vector<int>::size_type>( lepton ) < leptonID.size(); lepton++ ) {
       const float etaDiff = truthLeptonEta.at( lepton ) - recoLeptonEta.at( lepton );
-      const float phiDiff = truthLeptonPhi.at( lepton ) - recoLeptonPhi.at( lepton );
+      const float phiDiff = TVector2::Phi_mpi_pi( truthLeptonPhi.at( lepton ) - recoLeptonPhi.at( lepton ) );
       const float truthRecoDeltaR = sqrt( etaDiff*etaDiff + phiDiff*phiDiff );
       const float truthRecoPtDiffRatio = std::abs( truthLeptonPt.at( lepton ) - recoLeptonPt.at( lepton ) ) / ( truthLeptonPt.at( lepton ) + recoLeptonPt.at( lepton ) );
 
@@ -1006,7 +1007,7 @@ EL::StatusCode compareFELinks :: execute ()
 
 	  // for neutral PFOs, also save calibration hit information
 	  // by default, (up to) the three largest contributions to each neutral FE is saved to the calpfo vector
-	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
+	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
 	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe_global);
 	  std::vector<Int_t> truthIDs;
 	  std::vector<Int_t> truthBarcodes;
@@ -1040,7 +1041,7 @@ EL::StatusCode compareFELinks :: execute ()
 	    // const xAOD::CaloCluster* thisCaloCluster = dynamic_cast<const xAOD::CaloCluster*>(FE_Iparticle);
 
 	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
-	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
 	    barcodeEnergyPair = calpfoVec(*linkedCluster);
 	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
 
@@ -1116,7 +1117,7 @@ EL::StatusCode compareFELinks :: execute ()
 	  continue;
 	}
 
-	double jetPhiDiff = jet->phi() - jet2->phi();
+	double jetPhiDiff = TVector2::Phi_mpi_pi(jet->phi() - jet2->phi());
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
 
@@ -1260,7 +1261,7 @@ EL::StatusCode compareFELinks :: execute ()
 
 	  // save calibration hit information
 	  ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
-	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
+	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
 	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNeutralGlobalFlowElement);
 	  ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
 
@@ -1291,7 +1292,7 @@ EL::StatusCode compareFELinks :: execute ()
 	    xAOD::CaloCluster *linkedCluster = (xAOD::CaloCluster*) electronNeutralGlobalFlowElement->otherObjects().at(0);
 
 	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
-	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
 	    barcodeEnergyPair = calpfoVec(*linkedCluster);
 	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
 
@@ -1646,7 +1647,7 @@ EL::StatusCode compareFELinks :: execute ()
 	  continue;
 	}
 
-	double jetPhiDiff = jet->phi() - jet2->phi();
+	double jetPhiDiff = TVector2::Phi_mpi_pi(jet->phi() - jet2->phi());
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
 
@@ -1689,7 +1690,7 @@ EL::StatusCode compareFELinks :: execute ()
 	  continue;
 	}
 
-	double jetPhiDiff = jet->phi() - jet2->phi();
+	double jetPhiDiff = TVector2::Phi_mpi_pi(jet->phi() - jet2->phi());
 	double jetEtaDiff = jet->eta() - jet2->eta();
 	double jetDeltaR = sqrt( jetPhiDiff*jetPhiDiff + jetEtaDiff*jetEtaDiff );
 
