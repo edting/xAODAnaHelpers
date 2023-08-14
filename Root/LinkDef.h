@@ -56,6 +56,7 @@
 #include <xAODAnaHelpers/MessagePrinterAlgo.h>
 #include <xAODAnaHelpers/MuonInFatJetCorrector.h>
 #include <xAODAnaHelpers/compareFELinks.h>
+#include <xAODAnaHelpers/mySimpleAlg.h>
 
 #ifdef __CINT__
 
@@ -116,5 +117,6 @@
 #pragma link C++ class MuonInFatJetCorrector+;
 
 #pragma link C++ class compareFELinks+;
+#pragma link C++ class mySimpleAlg+;
 
 #endif
