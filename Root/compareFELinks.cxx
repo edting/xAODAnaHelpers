@@ -169,6 +169,11 @@ EL::StatusCode compareFELinks :: histInitialize ()
     m_electronTree->Branch("calpfo_NLeadingTruthParticlePdgId", &m_calpfo_NLeadingTruthParticlePdgId);
     m_electronTree->Branch("calpfo_NLeadingTruthParticleBarcode", &m_calpfo_NLeadingTruthParticleBarcode);
     m_electronTree->Branch("calpfo_NLeadingTruthParticleEnergy", &m_calpfo_NLeadingTruthParticleEnergy);
+    if( m_calclusIsAvail ) {
+      m_electronTree->Branch("calclus_NLeadingTruthParticlePdgId", &m_calclus_NLeadingTruthParticlePdgId);
+      m_electronTree->Branch("calclus_NLeadingTruthParticleBarcode", &m_calclus_NLeadingTruthParticleBarcode);
+      m_electronTree->Branch("calclus_NLeadingTruthParticleEnergy", &m_calclus_NLeadingTruthParticleEnergy);
+    }
   }
 
   // photons
@@ -381,7 +386,7 @@ EL::StatusCode compareFELinks :: fileExecute ()
     //m_MD_finalNevents      = ( m_isDerivation ) ? DxAODEventsCBK->nAcceptedEvents() : m_MD_initialNevents;
     //m_MD_finalSumW      = ( m_isDerivation ) ? DxAODEventsCBK->sumOfEventWeights() : m_MD_initialSumW;
     //m_MD_finalSumWSquared   = ( m_isDerivation ) ? DxAODEventsCBK->sumOfEventWeightsSquared() : m_MD_initialSumWSquared;
-  
+
     // the assigned value for m_MD_initialSumW will be saved to output ntuple in the main event loop
 
   }
@@ -971,6 +976,11 @@ EL::StatusCode compareFELinks :: execute ()
       std::vector<std::vector<int>> calpfo_NLeadingTruthParticleBarcode;
       std::vector<std::vector<double>> calpfo_NLeadingTruthParticleEnergy;
 
+      // vectors to store truth info from calclus decoration
+      std::vector<std::vector<int>> calclus_NLeadingTruthParticlePdgId;
+      std::vector<std::vector<int>> calclus_NLeadingTruthParticleBarcode;
+      std::vector<std::vector<double>> calclus_NLeadingTruthParticleEnergy;
+
       // loop over jet constituents
       ANA_MSG_VERBOSE( "Number of jet constituents: " << jet->numConstituents() );
       for( size_t consti = 0; consti < jet->numConstituents(); consti++) {
@@ -1022,6 +1032,40 @@ EL::StatusCode compareFELinks :: execute ()
 	  calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
 	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
 	  calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+
+	  // save calibration hit information for the topo-cluster corresponding to this neutral FE (if decoration is available)
+	  if( m_calclusIsAvail ) {
+	    xAOD::CaloCluster *linkedCluster = (xAOD::CaloCluster*) fe_global->otherObjects().at(0);
+	    // const xAOD::IParticle* FE_Iparticle=thisFE->otherObjects().at(0);
+	    // const xAOD::CaloCluster* thisCaloCluster = dynamic_cast<const xAOD::CaloCluster*>(FE_Iparticle);
+
+	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
+	    barcodeEnergyPair = calpfoVec(*linkedCluster);
+	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
+
+	    // find truth particle with matching barcode and check its PDG ID
+	    truthIDs.clear();
+	    truthBarcodes.clear();
+	    truthEnergies.clear();
+	    for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
+	      bool foundMatchingBarcode = false;
+	      for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
+		if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
+		foundMatchingBarcode = true;
+		truthIDs.push_back( truthParticle->pdgId() );
+		truthBarcodes.push_back( truthParticle->barcode() );
+		truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
+
+		ANA_MSG_VERBOSE( "[topo-cluster linked to the electron-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
+		break;
+	      }
+	      if( !foundMatchingBarcode ) ANA_MSG_VERBOSE( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	    } //end loop over calpfo vector
+	    calclus_NLeadingTruthParticlePdgId.push_back(truthIDs);
+	    calclus_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
+	    calclus_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+	  }
       	}
       } //end loop over jet constituents
 
@@ -1036,6 +1080,9 @@ EL::StatusCode compareFELinks :: execute ()
       m_calpfo_NLeadingTruthParticlePdgId.push_back( calpfo_NLeadingTruthParticlePdgId );
       m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
       m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
+      m_calclus_NLeadingTruthParticlePdgId.push_back( calclus_NLeadingTruthParticlePdgId );
+      m_calclus_NLeadingTruthParticleBarcode.push_back( calclus_NLeadingTruthParticleBarcode );
+      m_calclus_NLeadingTruthParticleEnergy.push_back( calclus_NLeadingTruthParticleEnergy );
 
       // b-tag and scale factor
       SG::AuxElement::ConstAccessor< char > isTag("BTag_DL1dv01_FixedCutBEff_77"); // actually an int: 0 = not b-tagged, 1 = tagged
@@ -1112,6 +1159,9 @@ EL::StatusCode compareFELinks :: execute ()
     m_calpfo_NLeadingTruthParticlePdgId.clear();
     m_calpfo_NLeadingTruthParticleBarcode.clear();
     m_calpfo_NLeadingTruthParticleEnergy.clear();
+    m_calclus_NLeadingTruthParticlePdgId.clear();
+    m_calclus_NLeadingTruthParticleBarcode.clear();
+    m_calclus_NLeadingTruthParticleEnergy.clear();
   }
 
   // EMTOPO JETS
@@ -1193,6 +1243,11 @@ EL::StatusCode compareFELinks :: execute ()
       std::vector<std::vector<int>> calpfo_NLeadingTruthParticleBarcode;
       std::vector<std::vector<double>> calpfo_NLeadingTruthParticleEnergy;
 
+      // also prepare vectors for CaloCalTopoCluster calibration hits
+      std::vector<std::vector<int>> calclus_NLeadingTruthParticlePdgId;
+      std::vector<std::vector<int>> calclus_NLeadingTruthParticleBarcode;
+      std::vector<std::vector<double>> calclus_NLeadingTruthParticleEnergy;
+
       // loop over each neutral FE linked to the electron
       for( ElementLink<xAOD::FlowElementContainer> feLink : electronNFELinks ) {
 	if( feLink.isValid() ) {
@@ -1230,6 +1285,38 @@ EL::StatusCode compareFELinks :: execute ()
 	  calpfo_NLeadingTruthParticlePdgId.push_back(truthIDs);
 	  calpfo_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
 	  calpfo_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+
+	  // save calibration hit information for the topo-cluster corresponding to this neutral FE (if decoration is available)
+	  if( m_calclusIsAvail ) {
+	    xAOD::CaloCluster *linkedCluster = (xAOD::CaloCluster*) electronNeutralGlobalFlowElement->otherObjects().at(0);
+
+	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
+	    barcodeEnergyPair = calpfoVec(*linkedCluster);
+	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
+
+	    // find truth particle with matching barcode and check its PDG ID
+	    truthIDs.clear();
+	    truthBarcodes.clear();
+	    truthEnergies.clear();
+	    for( Size_t truthContrib = 0; truthContrib < barcodeEnergyPair.size(); truthContrib++ ) {
+	      bool foundMatchingBarcode = false;
+	      for( const xAOD::TruthParticle *truthParticle : *truthParticles ) {
+		if( barcodeEnergyPair.at(truthContrib).first != truthParticle->barcode() ) continue;
+		foundMatchingBarcode = true;
+		truthIDs.push_back( truthParticle->pdgId() );
+		truthBarcodes.push_back( truthParticle->barcode() );
+		truthEnergies.push_back( barcodeEnergyPair.at(truthContrib).second * m_conversionFactor );
+
+		ANA_MSG_VERBOSE( "[topo-cluster linked to the electron-linked neutral FE]   PDGID: " << truthParticle->pdgId() << "   Barcode: " << truthParticle->barcode() << "   energy deposited: " << barcodeEnergyPair.at(truthContrib).second * m_conversionFactor << " GeV" );
+		break;
+	      }
+	      if( !foundMatchingBarcode ) ANA_MSG_VERBOSE( "Huh..? Didn't find any matching barcodes... This is unexpected." );
+	    } //end loop over calpfo vector
+	    calclus_NLeadingTruthParticlePdgId.push_back(truthIDs);
+	    calclus_NLeadingTruthParticleBarcode.push_back(truthBarcodes);
+	    calclus_NLeadingTruthParticleEnergy.push_back(truthEnergies);
+	  }
 	}
       } //end loop over linked neutral FEs
 
@@ -1257,6 +1344,9 @@ EL::StatusCode compareFELinks :: execute ()
       m_calpfo_NLeadingTruthParticlePdgId.push_back( calpfo_NLeadingTruthParticlePdgId );
       m_calpfo_NLeadingTruthParticleBarcode.push_back( calpfo_NLeadingTruthParticleBarcode );
       m_calpfo_NLeadingTruthParticleEnergy.push_back( calpfo_NLeadingTruthParticleEnergy );
+      m_calclus_NLeadingTruthParticlePdgId.push_back( calclus_NLeadingTruthParticlePdgId );
+      m_calclus_NLeadingTruthParticleBarcode.push_back( calclus_NLeadingTruthParticleBarcode );
+      m_calclus_NLeadingTruthParticleEnergy.push_back( calclus_NLeadingTruthParticleEnergy );
 
       countElectron++;
       if( m_doTruthObjectMatch && ( (m_isZee && countElectron == 2) || (m_isttbar && countElectron == numElectronsExpected) ) ) {
@@ -1280,6 +1370,9 @@ EL::StatusCode compareFELinks :: execute ()
     m_calpfo_NLeadingTruthParticlePdgId.clear();
     m_calpfo_NLeadingTruthParticleBarcode.clear();
     m_calpfo_NLeadingTruthParticleEnergy.clear();
+    m_calclus_NLeadingTruthParticlePdgId.clear();
+    m_calclus_NLeadingTruthParticleBarcode.clear();
+    m_calclus_NLeadingTruthParticleEnergy.clear();
   }
 
   /// PHOTONS

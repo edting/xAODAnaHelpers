@@ -87,6 +87,9 @@ public:
   // toggle TRUE makes it so only truth-matched objects are saved
   bool m_doTruthObjectMatch = false;
 
+  // whether topocluster calibration hits is available in input or not
+  bool m_calclusIsAvail = false;
+
   // convert pT and energy to GeV or leave it in the default MeV
   bool m_convertMeVToGeV = true;
 
@@ -165,6 +168,16 @@ private:
   std::vector<std::vector<std::vector<int>>> m_calpfo_NLeadingTruthParticlePdgId;
   std::vector<std::vector<std::vector<int>>> m_calpfo_NLeadingTruthParticleBarcode;
   std::vector<std::vector<std::vector<double>>> m_calpfo_NLeadingTruthParticleEnergy;
+
+  // calibration hit for CaloCaloTopoClusters
+  std::vector<std::vector<std::vector<int>>> m_calclus_NLeadingTruthParticlePdgId;
+  std::vector<std::vector<std::vector<int>>> m_calclus_NLeadingTruthParticleBarcode;
+  std::vector<std::vector<std::vector<double>>> m_calclus_NLeadingTruthParticleEnergy;
+
+  // list of calorimeter cells removed from topoclusters by PFlow
+  std::vector<std::vector<std::vector<int>>> m_cellsRemoved_truthParticlePdgId;
+  std::vector<std::vector<std::vector<int>>> m_cellsRemoved_truthParticleBarcode;
+  std::vector<std::vector<std::vector<double>>> m_cellsRemoved_truthParticleEnergy;
 
   // unit conversion factor (MeV -> GeV)
   double m_conversionFactor = 1.0;
