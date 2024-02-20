@@ -814,7 +814,7 @@ EL::StatusCode compareFELinks :: execute ()
 
       foundTruthLepton = true;
       leptonID.push_back( truth->pdgId() );
-      truthLeptonBarcode->push_back( truth->barcode() );
+      truthLeptonBarcode.push_back( truth->barcode() );
       truthLeptonPt.push_back( truth->pt() * m_conversionFactor );
       truthLeptonEta.push_back( truth->eta() );
       truthLeptonPhi.push_back( truth->phi() );
