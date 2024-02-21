@@ -327,21 +327,21 @@ EL::StatusCode mySimpleAlg :: initialize ()
   // initialise jet constituent container(s)
   std::string inputContainerBaseGlobal = "Global";
   std::string inputContainerBaseCHSG = "CHSG";
-  std::string inputContainerBaseCSSKG = "CSSKG";
+  // std::string inputContainerBaseCSSKG = "CSSKG";
   std::string chargedContainerName = "ChargedParticleFlowObjects";
   std::string neutralContainerName = "NeutralParticleFlowObjects";
   m_inGlobalChargedFEKey = inputContainerBaseGlobal + chargedContainerName;
   m_inGlobalNeutralFEKey = inputContainerBaseGlobal + neutralContainerName;
   m_inCHSGChargedFEKey = inputContainerBaseCHSG + chargedContainerName;
   m_inCHSGNeutralFEKey = inputContainerBaseCHSG + neutralContainerName;
-  m_inCSSKGChargedFEKey = inputContainerBaseCSSKG + chargedContainerName;
-  m_inCSSKGNeutralFEKey = inputContainerBaseCSSKG + neutralContainerName;
+  // m_inCSSKGChargedFEKey = inputContainerBaseCSSKG + chargedContainerName;
+  // m_inCSSKGNeutralFEKey = inputContainerBaseCSSKG + neutralContainerName;
   ANA_CHECK(m_inGlobalChargedFEKey.initialize());
   ANA_CHECK(m_inGlobalNeutralFEKey.initialize());
   ANA_CHECK(m_inCHSGChargedFEKey.initialize());
   ANA_CHECK(m_inCHSGNeutralFEKey.initialize());
-  ANA_CHECK(m_inCSSKGChargedFEKey.initialize());
-  ANA_CHECK(m_inCSSKGNeutralFEKey.initialize());
+  // ANA_CHECK(m_inCSSKGChargedFEKey.initialize());
+  // ANA_CHECK(m_inCSSKGNeutralFEKey.initialize());
 
   // // more decorations
   // ANA_CHECK(m_neutralFECellsRemovedReadDecorKey.assign("GlobalNeutralParticleFlowObjects.cellsRemovedFromNeutralFE_barcodeEnergyPair"));
@@ -620,7 +620,7 @@ EL::StatusCode mySimpleAlg :: execute ()
   if( !m_topoJetContainerName.empty() ) {
     SG::ReadHandle<xAOD::JetContainer> inContainer(m_jetTopoContKey);
 
-s    // placeholder if no scale factor information
+    // placeholder if no scale factor information
     static const std::vector<float> junk(1,-999);
 
     // loop over jets
@@ -650,7 +650,7 @@ s    // placeholder if no scale factor information
 
     //   // detector eta
     //   m_detEta.push_back( jet->getAttribute<float>("DetectorEta") );
-    // }
+    }
 
     // fill tree
     m_topoJetTree->Fill();
