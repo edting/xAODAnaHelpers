@@ -66,7 +66,7 @@ public:
   // name of truth containers (to be specified in configuration)
   std::string m_truthContainerName = "";//"TruthParticles";
   std::string m_truthJetContainerName = "";//"AntiKt4TruthJets";
-  std::string m_truthWZJetContainerName = "AntiKt4TruthWZDressedJets";
+  std::string m_truthWZJetContainerName = "AntiKt4TruthWZJets";
 
   // PDG ID of truth objects
   int m_truthPDGID = 0;

@@ -458,7 +458,8 @@ EL::StatusCode mySimpleAlg :: execute ()
 
 	  // for neutral PFOs, also save calibration hit information
 	  // by default, (up to) the three largest contributions to each neutral FE is saved to the calpfo vector
-	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
+	  //SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
+	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
 	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*fe_global);
 	  std::vector<Int_t> truthIDs;
 	  std::vector<Int_t> truthBarcodes;
@@ -492,7 +493,8 @@ EL::StatusCode mySimpleAlg :: execute ()
 	    // const xAOD::CaloCluster* thisCaloCluster = dynamic_cast<const xAOD::CaloCluster*>(FE_Iparticle);
 
 	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
-	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
+	    //SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
 	    barcodeEnergyPair = calpfoVec(*linkedCluster);
 	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
 
@@ -712,7 +714,8 @@ EL::StatusCode mySimpleAlg :: execute ()
 
 	  // save calibration hit information
 	  ANA_MSG_VERBOSE( "Fetching calpfo vector for the neutral FE linked to this electron..." );
-	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
+	  //SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_100LeadingTruthParticleBarcodeEnergyPairs");
+	  SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calpfo_NLeadingTruthParticleBarcodeEnergyPairs");
 	  std::vector<std::pair<unsigned int,double>> barcodeEnergyPair = calpfoVec(*electronNeutralGlobalFlowElement);
 	  ANA_MSG_VERBOSE( "Got the calpfo vector! Here are its details:" );
 
@@ -743,7 +746,8 @@ EL::StatusCode mySimpleAlg :: execute ()
 	    xAOD::CaloCluster *linkedCluster = (xAOD::CaloCluster*) electronNeutralGlobalFlowElement->otherObjects().at(0);
 
 	    ANA_MSG_VERBOSE( "Fetching calclus vector for the topo-cluster linked to the neutral FE that is linked to this electron..." );
-	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
+	    //SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_100LeadingTruthParticleBarcodeEnergyPairs");
+	    SG::AuxElement::ConstAccessor< std::vector<std::pair<unsigned int,double>> > calpfoVec("calclus_NLeadingTruthParticleBarcodeEnergyPairs");
 	    barcodeEnergyPair = calpfoVec(*linkedCluster);
 	    ANA_MSG_VERBOSE( "Got the calclus vector! Here are its details:" );
 
